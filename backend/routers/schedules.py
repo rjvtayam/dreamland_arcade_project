@@ -143,54 +143,55 @@ def reshuffle_schedules(
         User.id.in_(FULL_TIME_IDS),
         User.branch_id == branch_id,
         User.is_active == True
-    ).all()
+    ).order_by(User.id).all()
     part_time = db.query(User).filter(
         User.id.in_(PART_TIME_IDS),
         User.branch_id == branch_id,
         User.is_active == True
-    ).all()
+    ).order_by(User.id).all()
 
     existing = db.query(Schedule).filter(Schedule.branch_id == branch_id).all()
     for s in existing:
         db.delete(s)
     db.flush()
 
-    random.seed(week_offset * 100 + branch_id)
+    random.seed(week_offset * 7 + branch_id)
 
-    full_time_shuffled = list(full_time)
-    random.shuffle(full_time_shuffled)
-
-    day_off_assignments = {}
-    for i, user in enumerate(full_time_shuffled):
+    day_off_map = {}
+    full_time_ids = [u.id for u in full_time]
+    for i, uid in enumerate(full_time_ids):
         day_off = (i + week_offset) % 7
         if day_off == 0:
-            day_off = 1
-        day_off_assignments[user.id] = day_off
+            day_off = (day_off + 1) % 7
+        day_off_map[uid] = day_off
 
-    station_pool = list(STATIONS)
-    random.shuffle(station_pool)
+    per_user_stations = {}
+    for uid in full_time_ids:
+        shuffled_stations = list(STATIONS)
+        random.shuffle(shuffled_stations)
+        per_user_stations[uid] = shuffled_stations
 
     created = 0
     for day in range(7):
         working_today = []
         for user in full_time:
-            if day_off_assignments.get(user.id) != day:
+            if day_off_map.get(user.id) != day:
                 working_today.append(user)
+
         for user in part_time:
             if day in [6, 0]:
                 working_today.append(user)
 
-        random.shuffle(working_today)
-        day_stations = list(station_pool)
-        while len(day_stations) < len(working_today):
-            day_stations.extend(STATIONS)
-        random.shuffle(day_stations)
+        stations_today = list(STATIONS)
+        random.shuffle(stations_today)
+        while len(stations_today) < len(working_today):
+            stations_today.extend(STATIONS)
 
         for i, user in enumerate(working_today):
             is_part_time = user.id in PART_TIME_IDS
             start = "09:00"
             end = "18:00" if is_part_time else "21:00"
-            station = day_stations[i % len(day_stations)]
+            station = stations_today[i % len(stations_today)]
 
             schedule = Schedule(
                 user_id=user.id,
@@ -204,7 +205,19 @@ def reshuffle_schedules(
             db.add(schedule)
             created += 1
 
-        station_pool.reverse()
+        for user in full_time:
+            if day_off_map.get(user.id) == day:
+                schedule = Schedule(
+                    user_id=user.id,
+                    branch_id=branch_id,
+                    day_of_week=day,
+                    start_time="09:00",
+                    end_time="21:00",
+                    station="Day Off",
+                    is_active=True
+                )
+                db.add(schedule)
+                created += 1
 
     db.commit()
 
@@ -226,43 +239,45 @@ def generate_initial_schedules(
     if not branch_id:
         branch_id = current_user.branch_id
 
-    existing = db.query(Schedule).filter(Schedule.branch_id == branch_id).count()
-    if existing > 0:
-        return {"detail": f"Branch already has {existing} schedules. Use reshuffle to regenerate.", "count": existing}
-
     full_time = db.query(User).filter(
         User.id.in_(FULL_TIME_IDS),
         User.branch_id == branch_id,
         User.is_active == True
-    ).all()
+    ).order_by(User.id).all()
     part_time = db.query(User).filter(
         User.id.in_(PART_TIME_IDS),
         User.branch_id == branch_id,
         User.is_active == True
-    ).all()
+    ).order_by(User.id).all()
 
-    stations = list(STATIONS)
+    day_off_map = {}
+    for i, user in enumerate(full_time):
+        day_off = (i + 1) % 7
+        if day_off == 0:
+            day_off = 1
+        day_off_map[user.id] = day_off
+
     created = 0
-
     for day in range(7):
-        working_today = list(full_time)
+        working_today = []
+        for user in full_time:
+            if day_off_map.get(user.id) != day:
+                working_today.append(user)
         for user in part_time:
             if day in [6, 0]:
                 working_today.append(user)
 
         random.seed(day * 10 + branch_id)
-        random.shuffle(working_today)
-
-        day_stations = list(stations)
-        random.shuffle(day_stations)
-        while len(day_stations) < len(working_today):
-            day_stations.extend(stations)
+        stations_today = list(STATIONS)
+        random.shuffle(stations_today)
+        while len(stations_today) < len(working_today):
+            stations_today.extend(STATIONS)
 
         for i, user in enumerate(working_today):
             is_part_time = user.id in PART_TIME_IDS
             start = "09:00"
             end = "18:00" if is_part_time else "21:00"
-            station = day_stations[i % len(day_stations)]
+            station = stations_today[i % len(stations_today)]
 
             schedule = Schedule(
                 user_id=user.id,
@@ -275,6 +290,20 @@ def generate_initial_schedules(
             )
             db.add(schedule)
             created += 1
+
+        for user in full_time:
+            if day_off_map.get(user.id) == day:
+                schedule = Schedule(
+                    user_id=user.id,
+                    branch_id=branch_id,
+                    day_of_week=day,
+                    start_time="09:00",
+                    end_time="21:00",
+                    station="Day Off",
+                    is_active=True
+                )
+                db.add(schedule)
+                created += 1
 
     db.commit()
     return {"detail": f"Generated {created} initial schedules", "total": created}
