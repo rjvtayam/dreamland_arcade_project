@@ -16,15 +16,15 @@ const Router = {
     },
 
     handleRoute() {
-        const hash = window.location.hash.slice(1) || 'dashboard';
+        const hash = window.location.hash.slice(1) || 'landing';
         const routeKey = hash.split('/')[0];
 
-        if (!Auth.isAuthenticated() && routeKey !== 'login') {
-            this.navigate('login');
+        if (!Auth.isAuthenticated() && routeKey !== 'login' && routeKey !== 'landing') {
+            this.navigate('landing');
             return;
         }
 
-        if (Auth.isAuthenticated() && routeKey === 'login') {
+        if (Auth.isAuthenticated() && (routeKey === 'login' || routeKey === 'landing')) {
             this.navigate('dashboard');
             return;
         }
