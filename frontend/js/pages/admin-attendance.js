@@ -67,25 +67,33 @@ async function renderAdminAttendance() {
 function renderAttendanceRows(records, branches) {
     if (records.length === 0) return '<tr><td colspan="7" class="empty-cell">No records found</td></tr>';
     return records.map(r => {
-        const branchName = branches.find(b => String(b.id) === String(r.branch_id))?.name || '—';
-        const statusColor = r.status === 'present' ? 'green' : r.status === 'late' ? 'yellow' : r.status === 'overtime' ? 'purple' : 'red';
+        const branchName = r.branch_name || branches.find(b => String(b.id) === String(r.branch_id))?.name || '—';
+        const statusColor = r.status === 'present' ? 'green' : r.status === 'late' ? 'yellow' : r.status === 'overtime' ? 'purple' : r.status === 'day-off' ? 'blue' : 'red';
+        const displayName = r.user_name || ((r.first_name || '') + ' ' + (r.last_name || '')).trim() || '—';
+        const initials = displayName !== '—' ? displayName.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase() : '?';
+        const recDate = r.clock_in ? r.clock_in.substring(0, 10) : r.date || '';
         return `
             <tr>
                 <td>
                     <div class="user-cell">
-                        <div class="avatar avatar-sm">${getInitials(r.first_name, r.last_name)}</div>
-                        <span>${r.first_name} ${r.last_name}</span>
+                        <div class="avatar avatar-sm">${initials}</div>
+                        <span>${escapeHtmlAtt(displayName)}</span>
                     </div>
                 </td>
-                <td>${branchName}</td>
-                <td>${formatDate(r.date)}</td>
+                <td>${escapeHtmlAtt(branchName)}</td>
+                <td>${recDate || '—'}</td>
                 <td>${r.clock_in ? formatTime(r.clock_in) : '—'}</td>
                 <td>${r.clock_out ? formatTime(r.clock_out) : '—'}</td>
-                <td>${r.hours_worked ? r.hours_worked.toFixed(1) + 'h' : '—'}</td>
-                <td><span class="badge badge-${statusColor}">${r.status}</span></td>
+                <td>${r.hours_worked != null ? r.hours_worked.toFixed(1) + 'h' : (r.status === 'day-off' ? '0h' : '—')}</td>
+                <td><span class="badge badge-${statusColor}">${(r.status || '').toUpperCase()}</span></td>
             </tr>
         `;
     }).join('');
+}
+
+function escapeHtmlAtt(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 Router.register('attendance', renderAdminAttendance);

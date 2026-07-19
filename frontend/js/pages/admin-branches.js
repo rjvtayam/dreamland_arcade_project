@@ -1,4 +1,10 @@
 async function renderAdminBranches() {
+    const user = Auth.getUser();
+    if (user && user.role !== 'owner') {
+        Router.navigate('dashboard');
+        Toast.error('Access denied. Owner only.');
+        return;
+    }
     const app = document.getElementById('app');
     app.innerHTML = `<div class="layout">${renderSidebar()}<div class="main-content">${renderNavbar('Branch Management')}<div class="page-content" id="page-body"><div style="text-align:center;padding:60px;"><div class="spinner"></div></div></div></div></div>`;
     document.getElementById('logout-btn')?.addEventListener('click', (e) => { e.preventDefault(); Auth.logout(); });

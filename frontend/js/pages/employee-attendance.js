@@ -51,7 +51,7 @@ async function loadAttendanceRecords() {
   var endDate = document.getElementById('att-end-date').value;
 
   try {
-    var url = '/api/attendance/my';
+    var url = '/attendance/my';
     var params = [];
     if (startDate) params.push('start_date=' + startDate);
     if (endDate) params.push('end_date=' + endDate);
@@ -69,28 +69,26 @@ async function loadAttendanceRecords() {
     }
 
     var statusBadge = function(status) {
-      var colors = { present: '#166534', late: '#713f12', overtime: '#581c87', absent: '#7f1d1d' };
-      var textColors = { present: '#4ade80', late: '#facc15', overtime: '#c084fc', absent: '#f87171' };
+      var colors = { present: '#166534', late: '#713f12', overtime: '#581c87', absent: '#7f1d1d', 'day-off': '#1e3a5f' };
+      var textColors = { present: '#4ade80', late: '#facc15', overtime: '#c084fc', absent: '#f87171', 'day-off': '#60a5fa' };
       var bg = colors[status] || '#1e293b';
       var tc = textColors[status] || '#888';
       return '<span style="background:' + bg + ';color:' + tc + ';padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:600;text-transform:capitalize;">' + (status || 'N/A') + '</span>';
     };
 
-    var formatHours = function(record) {
-      if (!record.clock_out) return '<span style="color:#666;">-</span>';
-      var diff = new Date(record.clock_out) - new Date(record.clock_in);
-      var h = Math.floor(diff / 3600000);
-      var m = Math.floor((diff % 3600000) / 60000);
-      return h + 'h ' + m + 'm';
+    var formatDate = function(record) {
+      if (record.clock_in) return new Date(record.clock_in).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      if (record.date) return new Date(record.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return '';
     };
 
     var columns = [
-      { key: 'branch_name', label: 'Branch' },
-      { key: 'clock_in', label: 'Clock In', render: function(v) { return v ? formatTime(v) : '<span style="color:#666;">-</span>'; } },
-      { key: 'clock_out', label: 'Clock Out', render: function(v) { return v ? formatTime(v) : '<span style="color:#666;">Clocked In</span>'; } },
-      { key: 'hours', label: 'Hours', render: function(v, row) { return formatHours(row); } },
-      { key: 'status', label: 'Status', render: function(v) { return statusBadge(v); } },
-      { key: 'date', label: 'Date', render: function(v) { return v || ''; } }
+      { key: 'date', label: 'Date', render: function(v, row) { return formatDate(row); } },
+      { key: 'branch_name', label: 'Branch', render: function(v) { return v || '-'; } },
+      { key: 'clock_in', label: 'Time In', render: function(v, row) { if (row.status === 'day-off') return '<span style="color:#60a5fa;">-</span>'; return v ? formatTime(v) : '<span style="color:#666;">-</span>'; } },
+      { key: 'clock_out', label: 'Time Out', render: function(v, row) { if (row.status === 'day-off') return '<span style="color:#60a5fa;">-</span>'; return v ? formatTime(v) : '<span style="color:#666;">Timed In</span>'; } },
+      { key: 'hours_worked', label: 'Hours', render: function(v, row) { if (row.status === 'day-off') return '<span style="color:#60a5fa;">0h</span>'; if (!row.clock_out) return '<span style="color:#666;">-</span>'; var diff = new Date(row.clock_out) - new Date(row.clock_in); var h = Math.floor(diff / 3600000); var m = Math.floor((diff % 3600000) / 60000); return h + 'h ' + m + 'm'; } },
+      { key: 'status', label: 'Status', render: function(v) { return statusBadge(v); } }
     ];
 
     renderTable('att-table-container', columns, records);

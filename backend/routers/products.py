@@ -7,6 +7,7 @@ from schemas.sale import ProductCreate, ProductUpdate
 from dependencies import get_current_user, require_role
 from models.user import User
 from models.branch import Branch
+from models.product import Product
 from services import pos_service
 
 router = APIRouter(prefix="/api/products", tags=["products"])
@@ -19,6 +20,9 @@ def list_products(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     products = pos_service.get_products(db, branch_id, category)
     result = []
     for p in products:
@@ -43,6 +47,9 @@ def create_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    if current_user.role != "owner" and data.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only create products for their own branch")
+
     product = pos_service.create_product(
         db, data.branch_id, data.name, data.category, data.price, data.stock
     )
@@ -56,6 +63,12 @@ def update_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if current_user.role != "owner" and product.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only update products for their own branch")
+
     product = pos_service.update_product(db, product_id, **data.model_dump(exclude_unset=True))
     return {"detail": "Product updated"}
 
@@ -66,5 +79,11 @@ def deactivate_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if current_user.role != "owner" and product.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only delete products for their own branch")
+
     product = pos_service.update_product(db, product_id, is_active=False)
     return {"detail": "Product deactivated"}

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, DateTime, Text, Numeric
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -14,6 +14,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=True)
     role = Column(String(20), nullable=False, default="employee")
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
+    daily_rate = Column(Numeric(10,2), nullable=False, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

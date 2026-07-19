@@ -80,6 +80,7 @@ async function loadScheduleData() {
       if (day.schedule) {
         var startTime = formatTime(day.schedule.start_time || day.schedule.shift_start);
         var endTime = formatTime(day.schedule.end_time || day.schedule.shift_end);
+        var station = day.schedule.station || '';
         var branch = day.schedule.branch_name || '';
 
         return '<div style="background:' + bg + ';border:2px solid ' + borderColor + ';border-radius:12px;padding:16px;min-height:150px;display:flex;flex-direction:column;">' +
@@ -94,7 +95,8 @@ async function loadScheduleData() {
               '<div style="color:#888;font-size:0.7rem;margin:2px 0;">to</div>' +
               '<div style="color:#4ade80;font-size:0.95rem;font-weight:600;">' + endTime + '</div>' +
             '</div>' +
-            (branch ? '<div style="color:#aaa;font-size:0.78rem;margin-top:8px;text-align:center;">' + branch + '</div>' : '') +
+            (station ? '<div style="color:#facc15;font-size:0.8rem;margin-top:8px;text-align:center;font-weight:600;">' + station + '</div>' : '') +
+            (branch ? '<div style="color:#aaa;font-size:0.75rem;margin-top:4px;text-align:center;">' + branch + '</div>' : '') +
           '</div>' +
         '</div>';
       } else {

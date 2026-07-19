@@ -30,11 +30,24 @@ def list_branches(db: Session = Depends(get_db)):
     return result
 
 
+@router.get("/me")
+def get_my_branch(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role == "owner":
+        return {"id": None, "name": "All Branches"}
+    branch = db.query(Branch).filter(Branch.id == current_user.branch_id).first()
+    if not branch:
+        return {"id": None, "name": "Unknown"}
+    return {"id": branch.id, "name": branch.name}
+
+
 @router.post("")
 def create_branch(
     data: BranchCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("owner", "admin"))
+    current_user: User = Depends(require_role("owner"))
 ):
     branch = Branch(**data.model_dump())
     db.add(branch)
@@ -48,7 +61,7 @@ def update_branch(
     branch_id: int,
     data: BranchUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("owner", "admin"))
+    current_user: User = Depends(require_role("owner"))
 ):
     branch = db.query(Branch).filter(Branch.id == branch_id).first()
     if not branch:

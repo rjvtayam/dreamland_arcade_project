@@ -61,10 +61,15 @@ def list_dayoffs(
     current_user: User = Depends(require_role("owner", "admin"))
 ):
     query = db.query(DayoffRequest)
+
+    if current_user.role != "owner":
+        query = query.filter(DayoffRequest.branch_id == current_user.branch_id)
+    elif branch_id:
+        query = query.filter(DayoffRequest.branch_id == branch_id)
+
     if status:
         query = query.filter(DayoffRequest.status == status)
-    if branch_id:
-        query = query.filter(DayoffRequest.branch_id == branch_id)
+
     requests = query.order_by(DayoffRequest.created_at.desc()).all()
     result = []
     for r in requests:
@@ -95,6 +100,8 @@ def approve_dayoff(
     request = db.query(DayoffRequest).filter(DayoffRequest.id == request_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
+    if current_user.role != "owner" and request.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only review requests for their own branch")
     if request.status != "pending":
         raise HTTPException(status_code=400, detail="Request already reviewed")
     request.status = "approved"
@@ -113,6 +120,8 @@ def reject_dayoff(
     request = db.query(DayoffRequest).filter(DayoffRequest.id == request_id).first()
     if not request:
         raise HTTPException(status_code=404, detail="Request not found")
+    if current_user.role != "owner" and request.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only review requests for their own branch")
     if request.status != "pending":
         raise HTTPException(status_code=400, detail="Request already reviewed")
     request.status = "rejected"

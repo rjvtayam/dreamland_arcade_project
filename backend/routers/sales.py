@@ -39,6 +39,10 @@ def list_sales(
 ):
     sd = date.fromisoformat(start_date) if start_date else None
     ed = date.fromisoformat(end_date) if end_date else None
+
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     sales = pos_service.get_sales(db, branch_id, sd, ed)
     result = []
     for s in sales:
@@ -73,4 +77,7 @@ def sales_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     return pos_service.get_sales_summary(db, branch_id, period)

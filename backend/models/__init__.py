@@ -7,9 +7,12 @@ from models.holiday import Holiday
 from models.inventory import InventoryCategory, InventoryItem, InventoryLog
 from models.product import Product
 from models.sale import Sale, SaleItem
+from models.payslip import Payslip
+from models.announcement import Announcement
+from models.special_event import SpecialEvent
 
 __all__ = [
     "User", "Branch", "Attendance", "Schedule", "DayoffRequest",
     "Holiday", "InventoryCategory", "InventoryItem", "InventoryLog",
-    "Product", "Sale", "SaleItem"
+    "Product", "Sale", "SaleItem", "Payslip", "Announcement", "SpecialEvent"
 ]

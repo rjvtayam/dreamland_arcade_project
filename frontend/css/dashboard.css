@@ -190,6 +190,7 @@
 
 .page-content {
     padding: 2rem;
+    overflow: hidden;
 }
 
 .stats-grid {

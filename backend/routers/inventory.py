@@ -37,6 +37,9 @@ def list_items(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     items = inventory_service.get_items(db, branch_id, category_id)
     result = []
     for item in items:
@@ -67,6 +70,9 @@ def create_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    if current_user.role != "owner" and data.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only create items for their own branch")
+
     item = inventory_service.create_item(
         db, data.category_id, data.branch_id, data.name, data.description,
         data.quantity, data.unit, data.reorder_level, data.cost_price
@@ -81,6 +87,12 @@ def update_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    item = db.query(InventoryItem).filter(InventoryItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if current_user.role != "owner" and item.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only update items for their own branch")
+
     item = inventory_service.update_item(db, item_id, **data.model_dump(exclude_unset=True))
     return {"detail": "Item updated"}
 
@@ -92,6 +104,12 @@ def stock_in(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    item = db.query(InventoryItem).filter(InventoryItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if current_user.role != "owner" and item.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only manage stock for their own branch")
+
     log = inventory_service.stock_in(db, item_id, data.quantity, current_user.id, data.notes)
     return {"detail": "Stock added", "log_id": log.id}
 
@@ -103,6 +121,12 @@ def stock_out(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    item = db.query(InventoryItem).filter(InventoryItem.id == item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    if current_user.role != "owner" and item.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only manage stock for their own branch")
+
     log = inventory_service.stock_out(db, item_id, data.quantity, current_user.id, data.notes)
     return {"detail": "Stock removed", "log_id": log.id}
 
@@ -113,6 +137,9 @@ def low_stock(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     items = inventory_service.get_low_stock(db, branch_id)
     result = []
     for item in items:
@@ -138,6 +165,9 @@ def list_logs(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     logs = inventory_service.get_logs(db, item_id, branch_id, limit)
     result = []
     for log in logs:

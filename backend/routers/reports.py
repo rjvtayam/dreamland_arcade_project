@@ -17,6 +17,9 @@ def dashboard(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     return report_service.get_dashboard_stats(db, branch_id)
 
 
@@ -30,6 +33,10 @@ def attendance_report(
 ):
     sd = date.fromisoformat(start_date) if start_date else None
     ed = date.fromisoformat(end_date) if end_date else None
+
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     return report_service.get_attendance_report(db, branch_id, sd, ed)
 
 
@@ -39,6 +46,9 @@ def inventory_report(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     return report_service.get_inventory_report(db, branch_id)
 
 
@@ -52,4 +62,8 @@ def sales_report(
 ):
     sd = date.fromisoformat(start_date) if start_date else None
     ed = date.fromisoformat(end_date) if end_date else None
+
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     return report_service.get_sales_report(db, branch_id, sd, ed)

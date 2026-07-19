@@ -41,6 +41,9 @@ def my_attendance(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    from models.dayoff import DayoffRequest
+    from datetime import datetime as dt
+
     sd = date.fromisoformat(start_date) if start_date else None
     ed = date.fromisoformat(end_date) if end_date else None
     records = attendance_service.get_user_attendance(db, current_user.id, sd, ed)
@@ -60,6 +63,31 @@ def my_attendance(
             "hours_worked": hours,
             "notes": a.notes
         })
+
+    dayoff_query = db.query(DayoffRequest).filter(
+        DayoffRequest.user_id == current_user.id,
+        DayoffRequest.status == "approved"
+    )
+    if sd:
+        dayoff_query = dayoff_query.filter(DayoffRequest.date >= sd)
+    if ed:
+        dayoff_query = dayoff_query.filter(DayoffRequest.date <= ed)
+    dayoffs = dayoff_query.all()
+
+    for d in dayoffs:
+        result.append({
+            "id": d.id,
+            "branch_id": d.branch_id,
+            "branch_name": None,
+            "clock_in": None,
+            "clock_out": None,
+            "status": "day-off",
+            "hours_worked": 0,
+            "notes": d.reason,
+            "date": d.date.isoformat()
+        })
+
+    result.sort(key=lambda x: x.get("date") or (x.get("clock_in") or "")[:10], reverse=True)
     return result
 
 
@@ -71,6 +99,10 @@ def list_attendance(
     current_user: User = Depends(require_role("owner", "admin"))
 ):
     td = date.fromisoformat(target_date) if target_date else None
+
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     records = attendance_service.get_branch_attendance(db, branch_id, td)
     result = []
     for a in records:

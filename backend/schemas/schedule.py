@@ -10,6 +10,7 @@ class ScheduleBase(BaseModel):
     day_of_week: int
     start_time: str
     end_time: str
+    station: Optional[str] = None
 
 
 class ScheduleCreate(ScheduleBase):
@@ -22,6 +23,7 @@ class ScheduleUpdate(BaseModel):
     day_of_week: Optional[int] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
+    station: Optional[str] = None
     is_active: Optional[bool] = None
 
 

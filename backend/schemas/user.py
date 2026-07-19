@@ -36,6 +36,7 @@ class UserResponse(BaseModel):
     email: Optional[str]
     role: str
     branch_id: Optional[int]
+    daily_rate: float = 0
     is_active: bool
     created_at: datetime
     branch_name: Optional[str] = None

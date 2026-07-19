@@ -20,10 +20,15 @@ def list_users(
     current_user: User = Depends(require_role("owner", "admin"))
 ):
     query = db.query(User)
-    if branch_id:
+
+    if current_user.role != "owner":
+        query = query.filter(User.branch_id == current_user.branch_id)
+    elif branch_id:
         query = query.filter(User.branch_id == branch_id)
+
     if role:
         query = query.filter(User.role == role)
+
     users = query.order_by(User.last_name).all()
     result = []
     for u in users:
@@ -39,6 +44,7 @@ def list_users(
             "role": u.role,
             "branch_id": u.branch_id,
             "branch_name": branch_name,
+            "daily_rate": float(u.daily_rate or 0),
             "is_active": u.is_active,
             "created_at": u.created_at.isoformat() if u.created_at else None
         })
@@ -51,6 +57,12 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    if current_user.role != "owner" and data.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only create users in their own branch")
+
+    if current_user.role != "owner" and data.role in ("owner", "admin"):
+        raise HTTPException(status_code=403, detail="Only owner can assign owner roles")
+
     existing = db.query(User).filter(User.pin_hash == hash_pin(data.pin)).first()
     if existing:
         raise HTTPException(status_code=400, detail="PIN already in use")
@@ -85,10 +97,13 @@ def update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    if current_user.role != "owner" and user.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only update users in their own branch")
+
     update_data = data.model_dump(exclude_unset=True)
     if "role" in update_data and current_user.role != "owner":
-        if update_data["role"] in ("owner", "admin"):
-            raise HTTPException(status_code=403, detail="Only owner can assign owner/admin roles")
+        if update_data["role"] in ("owner",):
+            raise HTTPException(status_code=403, detail="Only owner can assign owner role")
 
     for key, value in update_data.items():
         setattr(user, key, value)

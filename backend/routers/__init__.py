@@ -9,6 +9,9 @@ from routers.inventory import router as inventory_router
 from routers.products import router as products_router
 from routers.sales import router as sales_router
 from routers.reports import router as reports_router
+from routers.payslips import router as payslips_router
+from routers.announcements import router as announcements_router
+from routers.special_events import router as special_events_router
 
 all_routers = [
     auth_router,
@@ -22,4 +25,7 @@ all_routers = [
     products_router,
     sales_router,
     reports_router,
+    payslips_router,
+    announcements_router,
+    special_events_router,
 ]

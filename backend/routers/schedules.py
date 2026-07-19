@@ -26,6 +26,7 @@ def my_schedule(db: Session = Depends(get_db), current_user: User = Depends(get_
             "day_name": DAY_NAMES[s.day_of_week],
             "start_time": str(s.start_time),
             "end_time": str(s.end_time),
+            "station": getattr(s, 'station', None),
             "branch_name": branch.name if branch else None
         })
     return result
@@ -37,6 +38,9 @@ def list_schedules(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
     if branch_id:
         schedules = schedule_service.get_branch_schedules(db, branch_id)
     else:
@@ -57,6 +61,7 @@ def list_schedules(
             "day_name": DAY_NAMES[s.day_of_week],
             "start_time": str(s.start_time),
             "end_time": str(s.end_time),
+            "station": getattr(s, 'station', None),
             "is_active": s.is_active
         })
     return result
@@ -68,10 +73,13 @@ def create_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    if current_user.role != "owner" and data.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only create schedules for their own branch")
+
     if data.day_of_week < 0 or data.day_of_week > 6:
         raise HTTPException(status_code=400, detail="day_of_week must be 0-6")
     schedule = schedule_service.create_schedule(
-        db, data.user_id, data.branch_id, data.day_of_week, data.start_time, data.end_time
+        db, data.user_id, data.branch_id, data.day_of_week, data.start_time, data.end_time, getattr(data, 'station', None)
     )
     return {"id": schedule.id, "detail": "Schedule created"}
 
@@ -83,6 +91,13 @@ def update_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    from models.schedule import Schedule
+    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    if current_user.role != "owner" and schedule.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only update schedules for their own branch")
+
     update_data = data.model_dump(exclude_unset=True)
     schedule = schedule_service.update_schedule(db, schedule_id, **update_data)
     return {"detail": "Schedule updated"}
@@ -94,4 +109,11 @@ def delete_schedule(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
+    from models.schedule import Schedule
+    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    if current_user.role != "owner" and schedule.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only delete schedules for their own branch")
+
     return schedule_service.delete_schedule(db, schedule_id)
