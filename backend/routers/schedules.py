@@ -1,17 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import Optional
+import random
+import math
 
 from database import get_db
 from schemas.schedule import ScheduleCreate, ScheduleUpdate
 from dependencies import get_current_user, require_role
 from models.user import User
 from models.branch import Branch
+from models.schedule import Schedule
 from services import schedule_service
 
 router = APIRouter(prefix="/api/schedules", tags=["schedules"])
 
 DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+
+STATIONS = ["Arcade Cashier", "Playhouse Cashier", "Cafe Cashier", "Assist/Troubleshoot", "Cleaners/Maintenance"]
+
+FULL_TIME_IDS = [9, 10, 11, 12, 13, 14]
+PART_TIME_IDS = [15, 16]
 
 
 @router.get("/my")
@@ -117,3 +125,156 @@ def delete_schedule(
         raise HTTPException(status_code=403, detail="Admins can only delete schedules for their own branch")
 
     return schedule_service.delete_schedule(db, schedule_id)
+
+
+@router.post("/reshuffle")
+def reshuffle_schedules(
+    branch_id: Optional[int] = None,
+    week_offset: int = 0,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+    if not branch_id:
+        branch_id = current_user.branch_id
+
+    full_time = db.query(User).filter(
+        User.id.in_(FULL_TIME_IDS),
+        User.branch_id == branch_id,
+        User.is_active == True
+    ).all()
+    part_time = db.query(User).filter(
+        User.id.in_(PART_TIME_IDS),
+        User.branch_id == branch_id,
+        User.is_active == True
+    ).all()
+
+    existing = db.query(Schedule).filter(Schedule.branch_id == branch_id).all()
+    for s in existing:
+        db.delete(s)
+    db.flush()
+
+    random.seed(week_offset * 100 + branch_id)
+
+    full_time_shuffled = list(full_time)
+    random.shuffle(full_time_shuffled)
+
+    day_off_assignments = {}
+    for i, user in enumerate(full_time_shuffled):
+        day_off = (i + week_offset) % 7
+        if day_off == 0:
+            day_off = 1
+        day_off_assignments[user.id] = day_off
+
+    station_pool = list(STATIONS)
+    random.shuffle(station_pool)
+
+    created = 0
+    for day in range(7):
+        working_today = []
+        for user in full_time:
+            if day_off_assignments.get(user.id) != day:
+                working_today.append(user)
+        for user in part_time:
+            if day in [6, 0]:
+                working_today.append(user)
+
+        random.shuffle(working_today)
+        day_stations = list(station_pool)
+        while len(day_stations) < len(working_today):
+            day_stations.extend(STATIONS)
+        random.shuffle(day_stations)
+
+        for i, user in enumerate(working_today):
+            is_part_time = user.id in PART_TIME_IDS
+            start = "09:00"
+            end = "18:00" if is_part_time else "21:00"
+            station = day_stations[i % len(day_stations)]
+
+            schedule = Schedule(
+                user_id=user.id,
+                branch_id=branch_id,
+                day_of_week=day,
+                start_time=start,
+                end_time=end,
+                station=station,
+                is_active=True
+            )
+            db.add(schedule)
+            created += 1
+
+        station_pool.reverse()
+
+    db.commit()
+
+    return {
+        "detail": f"Reshuffled {created} schedules for week offset {week_offset}",
+        "total": created,
+        "week_offset": week_offset
+    }
+
+
+@router.post("/generate-initial")
+def generate_initial_schedules(
+    branch_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+    if not branch_id:
+        branch_id = current_user.branch_id
+
+    existing = db.query(Schedule).filter(Schedule.branch_id == branch_id).count()
+    if existing > 0:
+        return {"detail": f"Branch already has {existing} schedules. Use reshuffle to regenerate.", "count": existing}
+
+    full_time = db.query(User).filter(
+        User.id.in_(FULL_TIME_IDS),
+        User.branch_id == branch_id,
+        User.is_active == True
+    ).all()
+    part_time = db.query(User).filter(
+        User.id.in_(PART_TIME_IDS),
+        User.branch_id == branch_id,
+        User.is_active == True
+    ).all()
+
+    stations = list(STATIONS)
+    created = 0
+
+    for day in range(7):
+        working_today = list(full_time)
+        for user in part_time:
+            if day in [6, 0]:
+                working_today.append(user)
+
+        random.seed(day * 10 + branch_id)
+        random.shuffle(working_today)
+
+        day_stations = list(stations)
+        random.shuffle(day_stations)
+        while len(day_stations) < len(working_today):
+            day_stations.extend(stations)
+
+        for i, user in enumerate(working_today):
+            is_part_time = user.id in PART_TIME_IDS
+            start = "09:00"
+            end = "18:00" if is_part_time else "21:00"
+            station = day_stations[i % len(day_stations)]
+
+            schedule = Schedule(
+                user_id=user.id,
+                branch_id=branch_id,
+                day_of_week=day,
+                start_time=start,
+                end_time=end,
+                station=station,
+                is_active=True
+            )
+            db.add(schedule)
+            created += 1
+
+    db.commit()
+    return {"detail": f"Generated {created} initial schedules", "total": created}

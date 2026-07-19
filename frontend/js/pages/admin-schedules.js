@@ -4,9 +4,11 @@ function renderAdminSchedules() {
   let users = [];
   let branches = [];
   let filterBranch = '';
+  let weekOffset = 0;
 
   const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const DAY_FULL = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const STATIONS = ['Arcade Cashier','Playhouse Cashier','Cafe Cashier','Assist/Troubleshoot','Cleaners/Maintenance'];
 
   async function loadData() {
     try {
@@ -52,7 +54,10 @@ function renderAdminSchedules() {
             '<option value="3">3 Weeks Ahead</option>' +
           '</select>' +
         '</div>' +
-        '<button id="add-schedule-btn" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-weight:600;font-size:0.85rem;">+ Add Schedule</button>' +
+        '<div style="display:flex;gap:8px;">' +
+          '<button id="reshuffle-btn" style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-weight:600;font-size:0.85rem;">🔀 Reshuffle</button>' +
+          '<button id="add-schedule-btn" style="background:#6366f1;color:#fff;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-weight:600;font-size:0.85rem;">+ Add Schedule</button>' +
+        '</div>' +
       '</div>' +
 
       '<div id="schedule-grid" style="overflow-x:auto;"></div>' +
@@ -66,7 +71,6 @@ function renderAdminSchedules() {
     const grid = document.getElementById('schedule-grid');
     if (!grid) return;
 
-    var weekOffset = parseInt(document.getElementById('week-offset')?.value || '0');
     var today = new Date();
     var startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay() + (weekOffset * 7));
@@ -101,8 +105,6 @@ function renderAdminSchedules() {
       return (a.user_name || '').localeCompare(b.user_name || '');
     });
 
-    var isMobile = window.innerWidth < 768;
-
     var html = '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;overflow:hidden;">' +
       '<div style="padding:16px 20px;border-bottom:1px solid #2a3040;display:flex;justify-content:space-between;align-items:center;">' +
         '<h3 style="color:#e2e8f0;margin:0;font-size:1rem;">Week of ' + weekLabel + '</h3>' +
@@ -110,7 +112,7 @@ function renderAdminSchedules() {
           '<div style="display:flex;gap:6px;align-items:center;font-size:0.75rem;color:#888;">' +
             '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#166534;"></span> Cashier' +
             '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#1e3a5f;margin-left:8px;"></span> Assist' +
-            '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#581c87;margin-left:8px;"></span> Cleaner' +
+            '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#581c87;margin-left:8px;"></span> Maintenance' +
             '<span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#7f1d1d;margin-left:8px;"></span> Off' +
           '</div>' +
         '</div>' +
@@ -120,10 +122,8 @@ function renderAdminSchedules() {
       '<thead><tr style="border-bottom:2px solid #2a3040;">' +
       '<th style="padding:12px 16px;text-align:left;color:#94a3b8;font-size:0.8rem;font-weight:600;min-width:160px;position:sticky;left:0;background:#1a1f2e;z-index:1;">STAFF</th>';
 
-    var todayIdx = today.getDay();
     weekDates.forEach(function(d, i) {
       var isToday = d.toDateString() === today.toDateString();
-      var dayBg = isToday ? '#6366f1' : 'transparent';
       html += '<th style="padding:12px 10px;text-align:center;min-width:110px;">' +
         '<div style="color:' + (isToday ? '#818cf8' : '#94a3b8') + ';font-size:0.75rem;font-weight:600;">' + DAY_NAMES[i] + '</div>' +
         '<div style="color:' + (isToday ? '#c7d2fe' : '#64748b') + ';font-size:0.7rem;margin-top:2px;">' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + '</div>' +
@@ -133,7 +133,7 @@ function renderAdminSchedules() {
     html += '</tr></thead><tbody>';
 
     if (staffList.length === 0) {
-      html += '<tr><td colspan="8" style="padding:40px;text-align:center;color:#666;">No schedules found</td></tr>';
+      html += '<tr><td colspan="8" style="padding:40px;text-align:center;color:#666;">No schedules found. Click <strong>Reshuffle</strong> to generate.</td></tr>';
     }
 
     staffList.forEach(function(staff) {
@@ -154,7 +154,7 @@ function renderAdminSchedules() {
           var isOff = station === 'Day Off';
           var isCashier = station.includes('Cashier');
           var isAssist = station.includes('Assist');
-          var isCleaner = station.includes('Cleaner');
+          var isCleaner = station.includes('Cleaner') || station.includes('Maintenance');
 
           var cardBg, cardBorder, stationColor;
           if (isOff) {
@@ -170,9 +170,9 @@ function renderAdminSchedules() {
           var timeStr = '';
           if (!isOff && sched.start_time && sched.end_time) {
             var sh = parseInt(sched.start_time.split(':')[0]);
-            var sm = sched.start_time.split(':')[1];
+            var sm = sched.start_time.split(':')[1] || '00';
             var eh = parseInt(sched.end_time.split(':')[0]);
-            var em = sched.end_time.split(':')[1];
+            var em = sched.end_time.split(':')[1] || '00';
             var ampm_s = sh >= 12 ? 'p' : 'a';
             var ampm_e = eh >= 12 ? 'p' : 'a';
             var h12_s = sh > 12 ? sh - 12 : (sh === 0 ? 12 : sh);
@@ -214,8 +214,23 @@ function renderAdminSchedules() {
   function attachEvents() {
     document.getElementById('logout-btn')?.addEventListener('click', e => { e.preventDefault(); Auth.logout(); });
     document.getElementById('branch-filter')?.addEventListener('change', e => { filterBranch = e.target.value; render(); });
-    document.getElementById('week-offset')?.addEventListener('change', () => renderGrid(getFiltered()));
+    document.getElementById('week-offset')?.addEventListener('change', e => { weekOffset = parseInt(e.target.value); renderGrid(getFiltered()); });
     document.getElementById('add-schedule-btn')?.addEventListener('click', () => openModal());
+    document.getElementById('reshuffle-btn')?.addEventListener('click', doReshuffle);
+  }
+
+  async function doReshuffle() {
+    if (!confirm('Reshuffle all staff schedules for the selected week? This will replace all current schedules.')) return;
+    try {
+      var user = Auth.getUser();
+      var branchId = user.branch_id || 2;
+      var offset = parseInt(document.getElementById('week-offset')?.value || '0');
+      var result = await apiPost('/schedules/reshuffle?branch_id=' + branchId + '&week_offset=' + offset, {});
+      Toast.success(result.detail || 'Schedules reshuffled!');
+      loadData();
+    } catch (err) {
+      Toast.error(err.message || 'Failed to reshuffle');
+    }
   }
 
   async function openModal(schedule) {
@@ -228,6 +243,10 @@ function renderAdminSchedules() {
 
     var userOpts = '<option value="">Select Employee</option>' +
       users.filter(u => u.is_active).map(u => '<option value="' + u.id + '"' + (isEdit && String(schedule.user_id) === String(u.id) ? ' selected' : '') + '>' + escapeHtml(u.first_name + ' ' + u.last_name) + (u.branch_name ? ' (' + escapeHtml(u.branch_name) + ')' : '') + '</option>').join('');
+
+    var stationOpts = '<option value="">None</option>' +
+      STATIONS.map(s => '<option value="' + s + '"' + (isEdit && schedule.station === s ? ' selected' : '') + '>' + s + '</option>').join('') +
+      '<option value="Day Off"' + (isEdit && schedule.station === 'Day Off' ? ' selected' : '') + '>Day Off</option>';
 
     var html = '<form id="schedule-form" style="display:flex;flex-direction:column;gap:16px;">' +
       '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Employee</label>' +
@@ -244,10 +263,7 @@ function renderAdminSchedules() {
       '<input type="time" name="end_time" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;" value="' + (isEdit && schedule.end_time ? schedule.end_time.substring(0,5) : '21:00') + '" required></div></div>' +
       '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Station / Assignment</label>' +
       '<select name="station" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;">' +
-      '<option value="">None</option>' +
-      ['Arcade Cashier','Playhouse Cashier','Cafe Cashier','Assist/Troubleshoot','Cleaner','Assist/Troubleshoot & Cleaner','Day Off'].map(s =>
-        '<option value="' + s + '"' + (isEdit && schedule.station === s ? ' selected' : '') + '>' + s + '</option>'
-      ).join('') + '</select></div>' +
+      stationOpts + '</select></div>' +
       '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">' +
       '<button type="button" onclick="Modal.close()" style="background:#374151;color:#9ca3af;border:none;border-radius:6px;padding:8px 20px;cursor:pointer;">Cancel</button>' +
       (isEdit ? '<button type="button" id="delete-sched-btn" style="background:#7f1d1d;color:#fca5a5;border:1px solid #ef4444;border-radius:6px;padding:8px 16px;cursor:pointer;">Delete</button>' : '') +
