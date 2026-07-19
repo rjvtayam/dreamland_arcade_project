@@ -159,10 +159,9 @@ def reshuffle_schedules(
 
     day_off_map = {}
     full_time_ids = [u.id for u in full_time]
+    off_days_pool = [1, 2, 3, 4]
     for i, uid in enumerate(full_time_ids):
-        day_off = (i + week_offset) % 7
-        if day_off == 0:
-            day_off = (day_off + 1) % 7
+        day_off = off_days_pool[(i + week_offset) % len(off_days_pool)]
         day_off_map[uid] = day_off
 
     per_user_stations = {}
@@ -189,8 +188,8 @@ def reshuffle_schedules(
 
         for i, user in enumerate(working_today):
             is_part_time = user.id in PART_TIME_IDS
-            start = "09:00"
-            end = "18:00" if is_part_time else "21:00"
+            start = "10:00"
+            end = "18:00" if is_part_time else "20:00"
             station = stations_today[i % len(stations_today)]
 
             schedule = Schedule(
@@ -211,8 +210,8 @@ def reshuffle_schedules(
                     user_id=user.id,
                     branch_id=branch_id,
                     day_of_week=day,
-                    start_time="09:00",
-                    end_time="21:00",
+                    start_time="10:00",
+                    end_time="20:00",
                     station="Day Off",
                     is_active=True
                 )
@@ -251,10 +250,9 @@ def generate_initial_schedules(
     ).order_by(User.id).all()
 
     day_off_map = {}
+    off_days_pool = [1, 2, 3, 4]
     for i, user in enumerate(full_time):
-        day_off = (i + 1) % 7
-        if day_off == 0:
-            day_off = 1
+        day_off = off_days_pool[i % len(off_days_pool)]
         day_off_map[user.id] = day_off
 
     created = 0
@@ -275,8 +273,8 @@ def generate_initial_schedules(
 
         for i, user in enumerate(working_today):
             is_part_time = user.id in PART_TIME_IDS
-            start = "09:00"
-            end = "18:00" if is_part_time else "21:00"
+            start = "10:00"
+            end = "18:00" if is_part_time else "20:00"
             station = stations_today[i % len(stations_today)]
 
             schedule = Schedule(
@@ -297,8 +295,8 @@ def generate_initial_schedules(
                     user_id=user.id,
                     branch_id=branch_id,
                     day_of_week=day,
-                    start_time="09:00",
-                    end_time="21:00",
+                    start_time="10:00",
+                    end_time="20:00",
                     station="Day Off",
                     is_active=True
                 )
