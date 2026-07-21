@@ -13,6 +13,7 @@ from routers.payslips import router as payslips_router
 from routers.announcements import router as announcements_router
 from routers.special_events import router as special_events_router
 from routers.tracking_sheets import router as tracking_sheets_router
+from routers.members import router as members_router
 
 all_routers = [
     auth_router,
@@ -30,4 +31,5 @@ all_routers = [
     announcements_router,
     special_events_router,
     tracking_sheets_router,
+    members_router,
 ]

@@ -8,6 +8,7 @@ function renderAdminPOS() {
   var searchQuery = '';
   var activeArea = 'Arcade';
   var tracking = [];
+  var loyaltyMember = null;
 
   var AREAS = [
     { id: 'Arcade', icon: '🎮', color: '#6366f1' },
@@ -191,6 +192,20 @@ function renderAdminPOS() {
           '<span style="color:#888;font-size:0.8rem;">' + cart.reduce(function(s, i) { return s + i.quantity; }, 0) + ' items</span>' +
         '</div>' +
 
+        '<div style="padding:12px 16px;border-bottom:1px solid #2a3040;">' +
+          (loyaltyMember ?
+            '<div style="display:flex;justify-content:space-between;align-items:center;background:#0d1117;border:1px solid #6366f1;border-radius:8px;padding:10px;">' +
+              '<div><span style="color:#a78bfa;font-weight:600;font-size:0.85rem;">' + esc(loyaltyMember.first_name) + ' ' + esc(loyaltyMember.last_name) + '</span>' +
+              '<span style="color:#888;font-size:0.7rem;margin-left:8px;">' + esc(loyaltyMember.card_number) + '</span></div>' +
+              '<button onclick="window.__posClearMember()" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.75rem;">remove</button>' +
+            '</div>' :
+            '<div style="display:flex;gap:8px;">' +
+              '<input type="text" id="loyalty-card-input" placeholder="Card # or name..." style="flex:1;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:7px 10px;color:#e2e8f0;font-size:0.8rem;">' +
+              '<button onclick="window.__posLookupMember()" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:7px 12px;cursor:pointer;font-size:0.8rem;">Lookup</button>' +
+            '</div>'
+          ) +
+        '</div>' +
+
         '<div style="flex:1;overflow-y:auto;padding:12px;">' +
         (cart.length === 0 ? '<div style="text-align:center;padding:40px 0;color:#666;">Cart is empty</div>' :
           cart.map(function(item) {
@@ -276,6 +291,26 @@ function renderAdminPOS() {
   window.__posRemove = function(id) { removeFromCart(id); };
   window.__posArea = function(area) { activeArea = area; render(); };
 
+  window.__posLookupMember = async function() {
+    var input = document.getElementById('loyalty-card-input');
+    if (!input) return;
+    var q = input.value.trim();
+    if (!q) { Toast.error('Enter card number or name'); return; }
+    try {
+      var params = 'search=' + encodeURIComponent(q);
+      if (selectedBranch) params += '&branch_id=' + selectedBranch;
+      var results = await apiGet('/members?' + params);
+      if (!Array.isArray(results) || results.length === 0) { Toast.error('Member not found'); return; }
+      loyaltyMember = results[0];
+      Toast.success('Member: ' + loyaltyMember.first_name + ' ' + loyaltyMember.last_name + ' (' + loyaltyMember.card_number + ')');
+      render();
+    } catch (e) {
+      Toast.error('Lookup failed');
+    }
+  };
+
+  window.__posClearMember = function() { loyaltyMember = null; render(); };
+
   async function completeSale() {
     if (cart.length === 0) { Toast.error('Cart is empty'); return; }
     var total = getCartTotal();
@@ -298,6 +333,9 @@ function renderAdminPOS() {
         payment_method: paymentMethod,
         area: area
       };
+      if (loyaltyMember && i === 0) {
+        data.member_id = loyaltyMember.id;
+      }
       try {
         await apiPost('/sales', data);
       } catch (err) {
@@ -308,6 +346,7 @@ function renderAdminPOS() {
 
     Toast.success('Sale completed! Total: ' + formatCurrency(total));
     cart = [];
+    loyaltyMember = null;
     await Promise.all([loadProducts(), loadTracking()]);
   }
 
