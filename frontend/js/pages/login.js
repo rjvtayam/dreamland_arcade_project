@@ -3,10 +3,41 @@ function renderLogin() {
     let pin = '';
     let selectedBranch = '';
 
+    let particles = '';
+    for (var i = 0; i < 40; i++) {
+        var left = Math.random() * 100;
+        var delay = Math.random() * 10;
+        var duration = 6 + Math.random() * 10;
+        var size = 1 + Math.random() * 3;
+        var colors = ['#00f0ff', '#ff00e5', '#b44aff', '#00ff88'];
+        var color = colors[Math.floor(Math.random() * colors.length)];
+        particles += '<div class="login-particle" style="left:' + left + '%;width:' + size + 'px;height:' + size + 'px;background:' + color + ';animation-delay:' + delay + 's;animation-duration:' + duration + 's;"></div>';
+    }
+
+    let molecules = '';
+    for (var i = 0; i < 12; i++) {
+        var left = 5 + Math.random() * 90;
+        var top = 5 + Math.random() * 90;
+        var delay = Math.random() * 6;
+        var duration = 4 + Math.random() * 6;
+        var size = 20 + Math.random() * 40;
+        var colors = ['rgba(0,240,255,0.06)', 'rgba(255,0,229,0.05)', 'rgba(180,74,255,0.04)'];
+        var color = colors[Math.floor(Math.random() * colors.length)];
+        molecules += '<div class="login-molecule" style="left:' + left + '%;top:' + top + '%;width:' + size + 'px;height:' + size + 'px;background:' + color + ';animation-delay:' + delay + 's;animation-duration:' + duration + 's;"></div>';
+    }
+
     const app = document.getElementById('app');
     app.innerHTML = `
         <div class="login-page">
-            <div class="login-card">
+            <div class="login-bg"></div>
+            <div class="login-grid-lines"></div>
+            <div class="login-particles">${particles}</div>
+            <div class="login-molecules">${molecules}</div>
+            <div class="login-orb login-orb-1"></div>
+            <div class="login-orb login-orb-2"></div>
+            <div class="login-orb login-orb-3"></div>
+            <div class="login-container">
+                <div class="login-card">
                 <div class="login-logo">
                     <svg class="login-logo-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.5">
                         <path d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" stroke-linecap="round" stroke-linejoin="round"/>
