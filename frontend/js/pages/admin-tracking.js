@@ -38,6 +38,27 @@ function renderAdminTracking() {
         e_cash: 0
       };
     }
+    if (area === 'Arcade') {
+      return {
+        items: [
+          { qty: 0, item: '10 Tokens', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 },
+          { qty: 0, item: '20 Tokens', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 },
+          { qty: 0, item: '50 Tokens', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 },
+          { qty: 0, item: '100 Tokens', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 },
+          { qty: 0, item: '150 Tokens', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 },
+          { qty: 0, item: '250 Tokens', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 },
+          { qty: 0, item: '', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 },
+          { qty: 0, item: '', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 },
+          { qty: 0, item: '', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 },
+          { qty: 0, item: '', cost: 0, amount: 0, quantity: 0, share: 0, total_sales: 0 }
+        ],
+        token_decode: { 10: 0, 20: 0, 50: 0, 100: 0, 150: 0, 250: 0 },
+        cash: { expenses: 0, recharge: 0, cash_in: 0 },
+        cash_denoms: { 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0, 20: 0, 10: 0, 5: 0, 1: 0, 0.25: 0 },
+        expenses_list: [],
+        token_explanation: ''
+      };
+    }
     return {};
   }
 
@@ -261,6 +282,7 @@ function renderAdminTracking() {
 
     if (view === 'edit' && editingSheet) {
       if (editingSheet.area === 'Playhouse') renderPlayhouseEditor(isOwner);
+      else if (editingSheet.area === 'Arcade') renderArcadeEditor(isOwner);
       else if (editingSheet.area === 'Cafe') renderCafeEditor(isOwner);
       else renderCafeEditor(isOwner);
       return;
@@ -660,6 +682,233 @@ function renderAdminTracking() {
         }
       });
     });
+  }
+
+  function recalcArcade() {
+    var d = editingSheet.data;
+    if (!d) return;
+    var itemTotal = 0;
+    if (d.items) {
+      d.items.forEach(function(item) {
+        item.qty = parseInt(item.qty) || 0;
+        item.cost = parseFloat(item.cost) || 0;
+        item.quantity = parseInt(item.quantity) || 0;
+        item.share = parseFloat(item.share) || 0;
+        item.amount = item.qty * item.cost;
+        item.total_sales = item.quantity * item.share;
+        itemTotal += item.total_sales;
+      });
+    }
+    var tokenTotal = 0;
+    if (d.token_decode) {
+      Object.keys(d.token_decode).forEach(function(k) {
+        tokenTotal += parseInt(d.token_decode[k]) || 0;
+      });
+    }
+    d.token_total = tokenTotal;
+    if (d.cash) {
+      d.cash.expenses = parseFloat(d.cash.expenses) || 0;
+      d.cash.recharge = parseFloat(d.cash.recharge) || 0;
+      d.cash.cash_in = parseFloat(d.cash.cash_in) || 0;
+    }
+    var cashDenomTotal = 0;
+    if (d.cash_denoms) {
+      Object.keys(d.cash_denoms).forEach(function(k) {
+        cashDenomTotal += (parseFloat(d.cash_denoms[k]) || 0) * parseFloat(k);
+      });
+    }
+    d.cash_denom_total = cashDenomTotal;
+    editingSheet.total_sales = itemTotal + (d.cash ? d.cash.cash_in : 0);
+    editingSheet.cashflow = cashDenomTotal - editingSheet.total_sales;
+  }
+
+  function renderArcadeEditor(isOwner) {
+    var sheet = editingSheet;
+    var d = sheet.data || getDefaultData('Arcade');
+    var isSubmitted = sheet.status === 'submitted';
+    var dis = isSubmitted ? ' disabled' : '';
+    var inp = 'width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:5px 4px;color:#e2e8f0;font-size:0.75rem;box-sizing:border-box;text-align:center;';
+    var inpL = inp.replace('text-align:center;', 'text-align:left;');
+
+    recalcArcade();
+
+    var itemRows = '';
+    if (d.items) {
+      d.items.forEach(function(item, i) {
+        itemRows += '<tr style="border-bottom:1px solid #1e2736;' + (i%2===1 ? 'background:#151a28;' : '') + '">' +
+          '<td style="padding:3px;"><input type="number" min="0" class="arc-item" data-idx="' + i + '" data-field="qty" value="' + (item.qty||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:3px;"><input type="text" class="arc-item" data-idx="' + i + '" data-field="item" value="' + esc(item.item||'') + '"' + dis + ' style="' + inpL + '"></td>' +
+          '<td style="padding:3px;"><input type="number" min="0" step="0.01" class="arc-item" data-idx="' + i + '" data-field="cost" value="' + (item.cost||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:3px;color:#6366f1;font-weight:600;font-size:0.75rem;">' + formatCurrency(item.amount||0) + '</td>' +
+          '<td style="padding:3px;"><input type="number" min="0" class="arc-item" data-idx="' + i + '" data-field="quantity" value="' + (item.quantity||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:3px;"><input type="number" min="0" step="0.01" class="arc-item" data-idx="' + i + '" data-field="share" value="' + (item.share||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:3px;color:#22c55e;font-weight:600;font-size:0.75rem;">' + formatCurrency(item.total_sales||0) + '</td>' +
+        '</tr>';
+      });
+    }
+
+    var tokenDenoms = [10, 20, 50, 100, 150, 250];
+    var tokenRows = '';
+    tokenDenoms.forEach(function(k) {
+      var val = d.token_decode ? (d.token_decode[k] || 0) : 0;
+      tokenRows += '<tr style="border-bottom:1px solid #1e2736;">' +
+        '<td style="padding:4px;color:#e2e8f0;font-weight:600;">' + k + '</td>' +
+        '<td style="padding:3px;"><input type="number" min="0" class="arc-token" data-denom="' + k + '" value="' + val + '"' + dis + ' style="' + inp + '"></td>' +
+      '</tr>';
+    });
+
+    var cashDenomRows = '';
+    var denoms = [1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.25];
+    denoms.forEach(function(k) {
+      var val = d.cash_denoms ? (d.cash_denoms[k] || 0) : 0;
+      cashDenomRows += '<tr style="border-bottom:1px solid #1e2736;">' +
+        '<td style="padding:4px;color:#e2e8f0;font-weight:600;">' + (k >= 1 ? k : '0.25') + '</td>' +
+        '<td style="padding:3px;"><input type="number" min="0" class="arc-cash" data-denom="' + k + '" value="' + val + '"' + dis + ' style="' + inp + '"></td>' +
+        '<td style="padding:4px;color:#6366f1;font-weight:600;font-size:0.75rem;">' + formatCurrency(val * k) + '</td>' +
+      '</tr>';
+    });
+
+    app.innerHTML = '<div class="layout">' + renderSidebar() +
+      '<div class="main-content">' + renderNavbar('Arcade Tracking Sheet') +
+      '<div class="page-content" id="page-body" style="overflow-y:auto;">' +
+      renderHeaderButtons(isSubmitted) +
+
+      '<div style="display:grid;grid-template-columns:1fr 260px;gap:20px;">' +
+      '<div id="tracking-print-area">' +
+
+        '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;overflow:hidden;margin-bottom:16px;">' +
+          '<div style="background:#1a5276;padding:10px 16px;text-align:center;">' +
+            '<div style="color:#fff;font-weight:700;font-size:0.9rem;">ARCADE TRACKING SHEET</div>' +
+          '</div>' +
+
+          '<div style="padding:12px;">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;">' +
+            '<thead><tr style="border-bottom:2px solid #2a3040;">' +
+              '<th style="padding:6px;color:#f59e0b;min-width:50px;">QTY</th>' +
+              '<th style="padding:6px;color:#f59e0b;text-align:left;min-width:140px;">ITEM</th>' +
+              '<th style="padding:6px;color:#f59e0b;min-width:60px;">COST</th>' +
+              '<th style="padding:6px;color:#f59e0b;min-width:70px;">AMOUNT</th>' +
+              '<th style="padding:6px;color:#60a5fa;min-width:60px;">QUANTITY</th>' +
+              '<th style="padding:6px;color:#60a5fa;min-width:60px;">SHARE</th>' +
+              '<th style="padding:6px;color:#f87171;min-width:80px;">TOTAL SALES</th>' +
+            '</tr></thead><tbody>' + itemRows + '</tbody></table>' +
+          '</div>' +
+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:12px;border-top:1px solid #2a3040;">' +
+            '<div>' +
+              '<div style="color:#f59e0b;font-weight:700;font-size:0.8rem;margin-bottom:8px;">DECODE (DLA TOKEN)</div>' +
+              '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
+              '<thead><tr style="border-bottom:2px solid #2a3040;">' +
+                '<th style="padding:6px;color:#94a3b8;">DENOM</th>' +
+                '<th style="padding:6px;color:#94a3b8;">COUNT</th>' +
+              '</tr></thead><tbody>' + tokenRows +
+              '<tr style="border-top:2px solid #f59e0b;background:#1a1510;"><td style="padding:6px;color:#f59e0b;font-weight:700;">TOTAL</td><td style="padding:6px;color:#f59e0b;font-weight:700;text-align:center;">' + (d.token_total||0) + '</td></tr>' +
+              '</tbody></table>' +
+            '</div>' +
+            '<div>' +
+              '<div style="color:#22c55e;font-weight:700;font-size:0.8rem;margin-bottom:8px;">CASH</div>' +
+              '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
+              '<thead><tr style="border-bottom:2px solid #2a3040;">' +
+                '<th style="padding:6px;color:#94a3b8;">TYPE</th>' +
+                '<th style="padding:6px;color:#94a3b8;">AMOUNT</th>' +
+              '</tr></thead><tbody>' +
+              '<tr style="border-bottom:1px solid #1e2736;"><td style="padding:4px;color:#e2e8f0;">Expenses</td><td style="padding:3px;"><input type="number" min="0" step="0.01" id="arc-expenses" value="' + (d.cash ? d.cash.expenses : 0) + '"' + dis + ' style="' + inp + '"></td></tr>' +
+              '<tr style="border-bottom:1px solid #1e2736;"><td style="padding:4px;color:#e2e8f0;">Recharge</td><td style="padding:3px;"><input type="number" min="0" step="0.01" id="arc-recharge" value="' + (d.cash ? d.cash.recharge : 0) + '"' + dis + ' style="' + inp + '"></td></tr>' +
+              '<tr style="border-bottom:1px solid #1e2736;"><td style="padding:4px;color:#e2e8f0;">Cash In</td><td style="padding:3px;"><input type="number" min="0" step="0.01" id="arc-cash-in" value="' + (d.cash ? d.cash.cash_in : 0) + '"' + dis + ' style="' + inp + '"></td></tr>' +
+              '</tbody></table>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="padding:12px;border-top:1px solid #2a3040;">' +
+            '<div style="color:#22c55e;font-weight:700;font-size:0.8rem;margin-bottom:8px;">CASH DENOM</div>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
+            '<thead><tr style="border-bottom:2px solid #2a3040;">' +
+              '<th style="padding:6px;color:#94a3b8;">DENOM</th>' +
+              '<th style="padding:6px;color:#60a5fa;">QTY</th>' +
+              '<th style="padding:6px;color:#94a3b8;">TOTAL</th>' +
+            '</tr></thead><tbody>' + cashDenomRows +
+            '<tr style="border-top:2px solid #22c55e;background:#0d1a14;"><td style="padding:6px;color:#22c55e;font-weight:700;">TOTAL</td><td></td><td style="padding:6px;color:#22c55e;font-weight:700;">' + formatCurrency(d.cash_denom_total||0) + '</td></tr>' +
+            '</tbody></table>' +
+          '</div>' +
+
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px;border-top:1px solid #2a3040;">' +
+            '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">CASHIER NAME</label>' +
+            '<input type="text" id="ts-cashier" value="' + esc(sheet.cashier_name||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+            '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">DATE</label>' +
+            '<input type="date" id="ts-date" value="' + esc(sheet.sheet_date||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+            '<div></div>' +
+            '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">TOTAL SALES</label>' +
+            '<div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#22c55e;font-weight:700;font-size:0.9rem;">' + formatCurrency(sheet.total_sales||0) + '</div></div>' +
+            '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">TOTAL CASH OH</label>' +
+            '<input type="number" min="0" step="0.01" id="ts-cash" value="' + (sheet.total_cash_on_hand||0) + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+            '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">CASHFLOW</label>' +
+            '<div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#f59e0b;font-weight:700;font-size:0.9rem;">' + formatCurrency(sheet.cashflow||0) + '</div></div>' +
+          '</div>' +
+
+          '<div style="padding:12px;border-top:1px solid #2a3040;">' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">OTHERS</label>' +
+              '<input type="text" id="ts-remarks-short" value="' + esc(sheet.remarks_short||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">TOKEN INS/OUT EXPLANATION</label>' +
+              '<input type="text" id="ts-remarks-over" value="' + esc(sheet.remarks_over||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+            '</div>' +
+          '</div>' +
+
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:flex;flex-direction:column;gap:12px;">' +
+        '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
+          '<div style="color:#94a3b8;font-size:0.75rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;">Summary</div>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cashier</span><span style="color:#e2e8f0;font-weight:600;">' + esc(sheet.cashier_name||'-') + '</span></div>' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Token Count</span><span style="color:#f59e0b;font-weight:600;">' + (d.token_total||0) + '</span></div>' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cash Denoms</span><span style="color:#6366f1;font-weight:600;">' + formatCurrency(d.cash_denom_total||0) + '</span></div>' +
+            '<hr style="border:none;border-top:1px solid #2a3040;">' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Total Sales</span><span style="color:#22c55e;font-weight:700;font-size:1rem;">' + formatCurrency(sheet.total_sales||0) + '</span></div>' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cashflow</span><span style="color:#f59e0b;font-weight:700;font-size:1rem;">' + formatCurrency(sheet.cashflow||0) + '</span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '</div></div></div>';
+
+    attachArcadeEvents();
+  }
+
+  function attachArcadeEvents() {
+    document.getElementById('logout-btn')?.addEventListener('click', function(e) { e.preventDefault(); Auth.logout(); });
+    document.querySelectorAll('.arc-item').forEach(function(el) {
+      el.addEventListener('change', function() {
+        var idx = parseInt(el.dataset.idx);
+        var field = el.dataset.field;
+        if (editingSheet.data && editingSheet.data.items && editingSheet.data.items[idx]) {
+          editingSheet.data.items[idx][field] = field === 'item' ? el.value : (parseFloat(el.value) || 0);
+        }
+      });
+    });
+    document.querySelectorAll('.arc-token').forEach(function(el) {
+      el.addEventListener('change', function() {
+        var denom = parseInt(el.dataset.denom);
+        if (editingSheet.data && editingSheet.data.token_decode) {
+          editingSheet.data.token_decode[denom] = parseInt(el.value) || 0;
+        }
+      });
+    });
+    document.querySelectorAll('.arc-cash').forEach(function(el) {
+      el.addEventListener('change', function() {
+        var denom = parseFloat(el.dataset.denom);
+        if (editingSheet.data && editingSheet.data.cash_denoms) {
+          editingSheet.data.cash_denoms[denom] = parseFloat(el.value) || 0;
+        }
+      });
+    });
+    var expEl = document.getElementById('arc-expenses');
+    if (expEl) expEl.addEventListener('change', function() { if (editingSheet.data.cash) editingSheet.data.cash.expenses = parseFloat(expEl.value) || 0; });
+    var rcEl = document.getElementById('arc-recharge');
+    if (rcEl) rcEl.addEventListener('change', function() { if (editingSheet.data.cash) editingSheet.data.cash.recharge = parseFloat(rcEl.value) || 0; });
+    var ciEl = document.getElementById('arc-cash-in');
+    if (ciEl) ciEl.addEventListener('change', function() { if (editingSheet.data.cash) editingSheet.data.cash.cash_in = parseFloat(ciEl.value) || 0; });
   }
 
   function attachCafeEvents() {
