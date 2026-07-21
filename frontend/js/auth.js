@@ -38,7 +38,7 @@ const Auth = {
     logout() {
         this.clearTokens();
         localStorage.removeItem('user');
-        window.location.hash = 'login';
+        window.location.hash = 'landing';
         window.location.reload();
     },
 
