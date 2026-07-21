@@ -42,6 +42,7 @@ class SaleCreate(BaseModel):
     branch_id: int
     items: List[SaleItemCreate]
     payment_method: str = "cash"
+    area: str = "Arcade"
 
 
 class SaleItemResponse(BaseModel):
@@ -62,6 +63,7 @@ class SaleResponse(BaseModel):
     sold_by: int
     total_amount: float
     payment_method: str
+    area: Optional[str] = None
     created_at: datetime
     seller_name: Optional[str] = None
     branch_name: Optional[str] = None

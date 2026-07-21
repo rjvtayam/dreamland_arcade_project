@@ -51,7 +51,7 @@ def update_product(db: Session, product_id: int, **kwargs) -> Product:
     return product
 
 
-def create_sale(db: Session, branch_id: int, sold_by: int, items: List[dict], payment_method: str = "cash") -> Sale:
+def create_sale(db: Session, branch_id: int, sold_by: int, items: List[dict], payment_method: str = "cash", area: str = "Arcade") -> Sale:
     total = 0
     sale_items = []
     for item_data in items:
@@ -78,7 +78,8 @@ def create_sale(db: Session, branch_id: int, sold_by: int, items: List[dict], pa
         branch_id=branch_id,
         sold_by=sold_by,
         total_amount=total,
-        payment_method=payment_method
+        payment_method=payment_method,
+        area=area
     )
     db.add(sale)
     db.flush()

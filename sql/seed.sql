@@ -43,10 +43,10 @@ INSERT INTO holidays (name, date, branch_id, is_recurring) VALUES
 -- Insert sample products for POS
 INSERT INTO products (branch_id, name, category, price, stock, is_active) VALUES
 -- Siniloan Branch
-(1, '10 Tokens', 'Tokens', 100.00, 500, true),
-(1, '20 Tokens', 'Tokens', 180.00, 300, true),
-(1, '50 Tokens', 'Tokens', 400.00, 200, true),
-(1, '100 Tokens', 'Tokens', 750.00, 100, true),
+(1, '50 Tokens', 'Tokens', 250.00, 500, true),
+(1, '100 Tokens', 'Tokens', 500.00, 300, true),
+(1, '150 Tokens (+2 Free)', 'Tokens', 750.00, 200, true),
+(1, '250 Tokens (+3 Free)', 'Tokens', 1250.00, 100, true),
 (1, 'Coca-Cola', 'Drinks', 25.00, 50, true),
 (1, 'Pepsi', 'Drinks', 25.00, 50, true),
 (1, 'Bottled Water', 'Drinks', 20.00, 100, true),
@@ -59,10 +59,10 @@ INSERT INTO products (branch_id, name, category, price, stock, is_active) VALUES
 (1, 'T-Shirt', 'Merch', 250.00, 15, true),
 
 -- Infanta Branch
-(2, '10 Tokens', 'Tokens', 100.00, 400, true),
-(2, '20 Tokens', 'Tokens', 180.00, 250, true),
-(2, '50 Tokens', 'Tokens', 400.00, 150, true),
-(2, '100 Tokens', 'Tokens', 750.00, 80, true),
+(2, '50 Tokens', 'Tokens', 250.00, 500, true),
+(2, '100 Tokens', 'Tokens', 500.00, 300, true),
+(2, '150 Tokens (+2 Free)', 'Tokens', 750.00, 200, true),
+(2, '250 Tokens (+3 Free)', 'Tokens', 1250.00, 100, true),
 (2, 'Coca-Cola', 'Drinks', 25.00, 40, true),
 (2, 'Pepsi', 'Drinks', 25.00, 40, true),
 (2, 'Bottled Water', 'Drinks', 20.00, 80, true),

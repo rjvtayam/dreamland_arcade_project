@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func as sql_func
 from typing import Optional
 from datetime import date
 
@@ -24,7 +25,8 @@ def create_sale(
     sale = pos_service.create_sale(
         db, data.branch_id, current_user.id,
         [item.model_dump() for item in data.items],
-        data.payment_method
+        data.payment_method,
+        data.area
     )
     return {"id": sale.id, "detail": "Sale completed", "total": float(sale.total_amount)}
 
@@ -64,6 +66,7 @@ def list_sales(
             "seller_name": f"{user.first_name} {user.last_name}" if user else None,
             "total_amount": float(s.total_amount),
             "payment_method": s.payment_method,
+            "area": s.area,
             "items": sale_items,
             "created_at": s.created_at.isoformat() if s.created_at else None
         })
@@ -81,3 +84,38 @@ def sales_summary(
         branch_id = current_user.branch_id
 
     return pos_service.get_sales_summary(db, branch_id, period)
+
+
+@router.get("/tracking")
+def area_tracking(
+    branch_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
+    today = date.today()
+    areas = ["Arcade", "Playhouse", "Cafe"]
+    result = []
+    for area in areas:
+        query = db.query(
+            sql_func.coalesce(sql_func.sum(Sale.total_amount), 0).label("total_sales"),
+            sql_func.count(Sale.id).label("total_transactions")
+        ).filter(
+            sql_func.date(Sale.created_at) == today,
+            Sale.area == area
+        )
+        if branch_id:
+            query = query.filter(Sale.branch_id == branch_id)
+        row = query.first()
+        total_sales = float(row.total_sales)
+        total_transactions = row.total_transactions
+        result.append({
+            "area": area,
+            "total_sales": total_sales,
+            "total_transactions": total_transactions,
+            "period": "daily",
+            "date": today.isoformat()
+        })
+    return result

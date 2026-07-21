@@ -12,6 +12,7 @@ class Sale(Base):
     sold_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     total_amount = Column(Numeric(10, 2), nullable=False)
     payment_method = Column(String(50), default="cash")
+    area = Column(String(50), default="Arcade")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     branch = relationship("Branch", back_populates="sales")
