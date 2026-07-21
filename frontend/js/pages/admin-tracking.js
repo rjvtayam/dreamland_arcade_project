@@ -17,6 +17,30 @@ function renderAdminTracking() {
     { id: 'Cafe', icon: '☕', color: '#f59e0b' }
   ];
 
+  function getDefaultData(area) {
+    if (area === 'Playhouse') {
+      return {
+        attractions: [
+          { name: 'PHR 150', tracking: 0, e_cash: 0 },
+          { name: 'PHR 250', tracking: 0, e_cash: 0 },
+          { name: 'PHR 250', tracking: 0, e_cash: 0 },
+          { name: 'PHR 350', tracking: 0, e_cash: 0 },
+          { name: 'PHR 500', tracking: 0, e_cash: 0 }
+        ],
+        head_count: [
+          { type: 'CHILD', child: 0, senior: 0, total_head: 0, amount: 0, e_cash: 0, total_sales: 0 },
+          { type: 'PWD', child: 0, senior: 0, total_head: 0, amount: 0, e_cash: 0, total_sales: 0 },
+          { type: 'ADULT', child: 0, senior: 0, total_head: 0, amount: 0, e_cash: 0, total_sales: 0 }
+        ],
+        cash_denoms: { 1000: 0, 500: 0, 200: 0, 100: 0, 50: 0, 20: 0, 10: 0, 5: 0, 1: 0, 0.25: 0 },
+        expenses_list: [],
+        recharge: 0,
+        e_cash: 0
+      };
+    }
+    return {};
+  }
+
   async function loadData() {
     try {
       branches = await apiGet('/branches');
@@ -62,19 +86,6 @@ function renderAdminTracking() {
 
   function createNewSheet(area) {
     var today = new Date().toISOString().split('T')[0];
-    var items = products.map(function(p) {
-      return {
-        item_description: p.name,
-        opening: p.stock || 0,
-        additional_pcs: 0,
-        total_count: p.stock || 0,
-        pcs_tracking: 0,
-        srp: p.price || 0,
-        total_sold: 0,
-        amount: 0,
-        closing: p.stock || 0
-      };
-    });
     editingSheet = {
       branch_id: parseInt(selectedBranch),
       area: area,
@@ -87,8 +98,18 @@ function renderAdminTracking() {
       cashflow: 0,
       remarks_short: '',
       remarks_over: '',
-      items: items
+      data: getDefaultData(area),
+      items: []
     };
+    if (area === 'Cafe') {
+      editingSheet.items = products.map(function(p) {
+        return {
+          item_description: p.name, opening: p.stock || 0, additional_pcs: 0,
+          total_count: p.stock || 0, pcs_tracking: 0, srp: p.price || 0,
+          total_sold: 0, amount: 0, closing: p.stock || 0
+        };
+      });
+    }
     activeArea = area;
     view = 'edit';
     render();
@@ -96,33 +117,72 @@ function renderAdminTracking() {
 
   function editSheet(sheet) {
     editingSheet = JSON.parse(JSON.stringify(sheet));
+    if (!editingSheet.data) editingSheet.data = getDefaultData(sheet.area);
     activeArea = sheet.area;
     view = 'edit';
     render();
   }
 
-  function recalcItem(item) {
-    item.total_count = (item.opening || 0) + (item.additional_pcs || 0);
-    item.total_sold = (item.total_count || 0) - (item.closing || 0);
-    if (item.total_sold < 0) item.total_sold = 0;
-    item.amount = (item.total_sold || 0) * (item.srp || 0);
+  function syncFormToSheet() {
+    if (!editingSheet) return;
+    var fields = ['ts-cashier', 'ts-date', 'ts-cash', 'ts-expenses', 'ts-others', 'ts-remarks-short', 'ts-remarks-over'];
+    var keys = ['cashier_name', 'sheet_date', 'total_cash_on_hand', 'expenses', 'others', 'remarks_short', 'remarks_over'];
+    fields.forEach(function(id, i) {
+      var el = document.getElementById(id);
+      if (el) {
+        if (keys[i] === 'total_cash_on_hand' || keys[i] === 'expenses' || keys[i] === 'others') {
+          editingSheet[keys[i]] = parseFloat(el.value) || 0;
+        } else {
+          editingSheet[keys[i]] = el.value;
+        }
+      }
+    });
   }
 
-  function recalcSheet() {
-    if (!editingSheet || !editingSheet.items) return;
-    var totalSales = 0;
-    editingSheet.items.forEach(function(item) {
-      recalcItem(item);
-      totalSales += item.amount || 0;
-    });
-    editingSheet.total_sales = totalSales;
-    editingSheet.cashflow = (editingSheet.total_cash_on_hand || 0) + (editingSheet.expenses || 0) + (editingSheet.others || 0) - totalSales;
+  function recalcPlayhouse() {
+    var d = editingSheet.data;
+    if (!d) return;
+    var attractionTotal = 0;
+    if (d.attractions) {
+      d.attractions.forEach(function(a) {
+        var match = a.name.match(/(\d+)/);
+        var price = match ? parseInt(match[1]) : 0;
+        a.tracking = parseInt(a.tracking) || 0;
+        a.e_cash = parseFloat(a.e_cash) || 0;
+        a.amount = a.tracking * price;
+        attractionTotal += a.amount;
+      });
+    }
+    var headcountTotal = 0;
+    var headcountEcash = 0;
+    if (d.head_count) {
+      d.head_count.forEach(function(h) {
+        h.child = parseInt(h.child) || 0;
+        h.senior = parseInt(h.senior) || 0;
+        h.total_head = h.child + h.senior;
+        h.amount = parseFloat(h.amount) || 0;
+        h.e_cash = parseFloat(h.e_cash) || 0;
+        h.total_sales = h.amount + h.e_cash;
+        headcountTotal += h.total_sales;
+        headcountEcash += h.e_cash;
+      });
+    }
+    editingSheet.total_sales = attractionTotal + headcountTotal;
+    editingSheet.data.e_cash = headcountEcash;
+    var cashDenomTotal = 0;
+    if (d.cash_denoms) {
+      Object.keys(d.cash_denoms).forEach(function(k) {
+        cashDenomTotal += (parseFloat(d.cash_denoms[k]) || 0) * parseFloat(k);
+      });
+    }
+    editingSheet.data.cash_total = cashDenomTotal;
+    editingSheet.cashflow = cashDenomTotal + headcountEcash - editingSheet.total_sales;
   }
 
   async function saveSheet(submit) {
     if (!editingSheet) return;
     syncFormToSheet();
-    recalcSheet();
+    recalcPlayhouse();
     try {
       var data = {
         branch_id: editingSheet.branch_id,
@@ -136,7 +196,8 @@ function renderAdminTracking() {
         cashflow: editingSheet.cashflow,
         remarks_short: editingSheet.remarks_short,
         remarks_over: editingSheet.remarks_over,
-        items: editingSheet.items
+        data: editingSheet.data,
+        items: editingSheet.items || []
       };
       var result;
       if (editingSheet.id) {
@@ -158,31 +219,6 @@ function renderAdminTracking() {
     }
   }
 
-  function syncFormToSheet() {
-    if (!editingSheet) return;
-    var fields = ['ts-cashier', 'ts-date', 'ts-cash', 'ts-expenses', 'ts-others', 'ts-remarks-short', 'ts-remarks-over'];
-    var keys = ['cashier_name', 'sheet_date', 'total_cash_on_hand', 'expenses', 'others', 'remarks_short', 'remarks_over'];
-    fields.forEach(function(id, i) {
-      var el = document.getElementById(id);
-      if (el) {
-        var val = el.value;
-        if (keys[i] === 'total_cash_on_hand' || keys[i] === 'expenses' || keys[i] === 'others') {
-          editingSheet[keys[i]] = parseFloat(val) || 0;
-        } else {
-          editingSheet[keys[i]] = val;
-        }
-      }
-    });
-    if (editingSheet.items) {
-      editingSheet.items.forEach(function(item, idx) {
-        ['opening', 'additional_pcs', 'srp', 'closing'].forEach(function(field) {
-          var el = document.querySelector('.ts-item[data-idx="' + idx + '"][data-field="' + field + '"]');
-          if (el) item[field] = parseFloat(el.value) || 0;
-        });
-      });
-    }
-  }
-
   async function submitSheet(sheet) {
     if (!confirm('Submit this tracking sheet? It will be locked from further edits.')) return;
     try {
@@ -199,19 +235,19 @@ function renderAdminTracking() {
     if (!content) return;
     var w = window.open('', '_blank', 'width=900,height=700');
     w.document.write('<html><head><title>Tracking Sheet</title><style>');
-    w.document.write('body{font-family:Arial,sans-serif;margin:20px;font-size:11px;}');
-    w.document.write('h2{text-align:center;margin:0 0 4px;font-size:14px;text-transform:uppercase;}');
-    w.document.write('.sub{text-align:center;font-size:10px;color:#555;margin-bottom:10px;}');
-    w.document.write('table{width:100%;border-collapse:collapse;font-size:10px;}');
-    w.document.write('th,td{border:1px solid #333;padding:4px 6px;text-align:center;}');
-    w.document.write('th{background:#1a5276;color:#fff;font-size:9px;text-transform:uppercase;}');
-    w.document.write('.footer-section{margin-top:12px;border:1px solid #333;padding:8px;}');
-    w.document.write('.footer-row{display:flex;gap:8px;margin-bottom:6px;}');
-    w.document.write('.footer-label{font-weight:bold;min-width:120px;font-size:10px;}');
+    w.document.write('body{font-family:Arial,sans-serif;margin:15px;font-size:10px;}');
+    w.document.write('h2{text-align:center;margin:0 0 4px;font-size:13px;text-transform:uppercase;}');
+    w.document.write('.sub{text-align:center;font-size:9px;color:#555;margin-bottom:8px;}');
+    w.document.write('table{width:100%;border-collapse:collapse;font-size:9px;}');
+    w.document.write('th,td{border:1px solid #333;padding:3px 5px;text-align:center;}');
+    w.document.write('th{background:#1a5276;color:#fff;font-size:8px;text-transform:uppercase;}');
+    w.document.write('.section-title{background:#d4e6f1;font-weight:bold;color:#1a5276;text-align:center;font-size:10px;}');
+    w.document.write('.footer-label{font-weight:bold;text-align:left;font-size:9px;}');
     w.document.write('.yellow{background:#f9e79f;}');
     w.document.write('.green{background:#abebc6;}');
     w.document.write('.blue{background:#d6eaf8;}');
     w.document.write('.orange{background:#f5cba7;}');
+    w.document.write('.pink{background:#f5b7b1;}');
     w.document.write('</style></head><body>');
     w.document.write(content.innerHTML);
     w.document.write('</body></html>');
@@ -224,7 +260,9 @@ function renderAdminTracking() {
     var isOwner = user && user.role === 'owner';
 
     if (view === 'edit' && editingSheet) {
-      renderEditor(isOwner);
+      if (editingSheet.area === 'Playhouse') renderPlayhouseEditor(isOwner);
+      else if (editingSheet.area === 'Cafe') renderCafeEditor(isOwner);
+      else renderCafeEditor(isOwner);
       return;
     }
 
@@ -257,7 +295,7 @@ function renderAdminTracking() {
       '</div>' +
 
       '<div style="display:grid;gap:12px;">' +
-      (sheets.length === 0 ? '<div style="text-align:center;padding:60px;color:#666;">No tracking sheets found. Click a button above to create one.</div>' :
+      (sheets.length === 0 ? '<div style="text-align:center;padding:60px;color:#666;">No tracking sheets found.</div>' :
         sheets.map(function(s) {
           var areaObj = AREAS.find(function(a) { return a.id === s.area; });
           var areaColor = areaObj ? areaObj.color : '#6366f1';
@@ -297,143 +335,335 @@ function renderAdminTracking() {
     attachListEvents();
   }
 
-  function renderEditor(isOwner) {
-    var sheet = editingSheet;
-    var areaObj = AREAS.find(function(a) { return a.id === sheet.area; });
-    var areaColor = areaObj ? areaObj.color : '#6366f1';
-    var isSubmitted = sheet.status === 'submitted';
-    var totalItems = sheet.items ? sheet.items.length : 0;
-    var inputBg = isSubmitted ? '#111520' : '#0d1117';
-    var inputBorder = isSubmitted ? '#1e2736' : '#30363d';
-    var inputStyle = 'width:100%;background:' + inputBg + ';border:1px solid ' + inputBorder + ';border-radius:4px;padding:5px 6px;color:#e2e8f0;font-size:0.75rem;box-sizing:border-box;';
-    var disabled = isSubmitted ? ' disabled' : '';
+  function renderHeaderButtons(isSubmitted) {
+    return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">' +
+      '<div style="display:flex;gap:10px;align-items:center;">' +
+        '<button onclick="window.__tsBack()" style="background:#374151;color:#e2e8f0;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:0.85rem;">\u2190 Back</button>' +
+        '<span style="color:' + (AREAS.find(function(a){return a.id===editingSheet.area;})||{}).color + ';font-weight:700;font-size:1.1rem;">' +
+          ((AREAS.find(function(a){return a.id===editingSheet.area;})||{}).icon||'') + ' ' + esc(editingSheet.area) + '</span>' +
+        '<span style="color:#888;font-size:0.85rem;">' + esc(editingSheet.sheet_date || '') + '</span>' +
+        (editingSheet.status ? '<span style="background:' + (editingSheet.status==='submitted'?'#22c55e':'#f59e0b') + '22;color:' + (editingSheet.status==='submitted'?'#22c55e':'#f59e0b') + ';padding:2px 10px;border-radius:4px;font-size:0.75rem;font-weight:600;">' + editingSheet.status.toUpperCase() + '</span>' : '') +
+      '</div>' +
+      '<div style="display:flex;gap:8px;">' +
+        (isSubmitted ? '' :
+          '<button onclick="window.__tsSave()" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:8px 20px;cursor:pointer;font-weight:600;font-size:0.85rem;">Save</button>' +
+          '<button onclick="window.__tsSaveSubmit()" style="background:#22c55e;color:#fff;border:none;border-radius:6px;padding:8px 20px;cursor:pointer;font-weight:600;font-size:0.85rem;">Save & Submit</button>'
+        ) +
+        '<button onclick="window.__tsPrint()" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:0.85rem;">\uD83D\uDDA8 Print</button>' +
+      '</div>' +
+    '</div>';
+  }
 
-    var rowsHtml = '';
-    if (sheet.items && sheet.items.length > 0) {
-      sheet.items.forEach(function(item, idx) {
-        rowsHtml += '<tr style="border-bottom:1px solid #1e2736;' + (idx % 2 === 1 ? 'background:#151a28;' : '') + '">' +
-          '<td style="padding:4px;"><input type="number" min="0" class="ts-item" data-idx="' + idx + '" data-field="opening" value="' + (item.opening || 0) + '"' + disabled + ' style="' + inputStyle + '"></td>' +
-          '<td style="padding:4px;"><input type="number" min="0" class="ts-item" data-idx="' + idx + '" data-field="additional_pcs" value="' + (item.additional_pcs || 0) + '"' + disabled + ' style="' + inputStyle + '"></td>' +
-          '<td style="padding:4px;color:#94a3b8;text-align:center;font-weight:600;">' + (item.total_count || 0) + '</td>' +
-          '<td style="padding:4px;text-align:left;color:#e2e8f0;font-weight:500;">' + esc(item.item_description) + '</td>' +
-          '<td style="padding:4px;color:#94a3b8;text-align:center;">' + (item.pcs_tracking || 0) + '</td>' +
-          '<td style="padding:4px;"><input type="number" min="0" step="0.01" class="ts-item" data-idx="' + idx + '" data-field="srp" value="' + (item.srp || 0) + '"' + disabled + ' style="' + inputStyle + '"></td>' +
-          '<td style="padding:4px;color:#22c55e;text-align:center;font-weight:600;">' + (item.total_sold || 0) + '</td>' +
-          '<td style="padding:4px;color:#6366f1;text-align:center;font-weight:600;">' + formatCurrency(item.amount || 0) + '</td>' +
-          '<td style="padding:4px;"><input type="number" min="0" class="ts-item" data-idx="' + idx + '" data-field="closing" value="' + (item.closing || 0) + '"' + disabled + ' style="' + inputStyle + '"></td>' +
+  function renderPlayhouseEditor(isOwner) {
+    var sheet = editingSheet;
+    var d = sheet.data || getDefaultData('Playhouse');
+    var isSubmitted = sheet.status === 'submitted';
+    var dis = isSubmitted ? ' disabled' : '';
+    var inp = 'width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:5px 6px;color:#e2e8f0;font-size:0.8rem;box-sizing:border-box;text-align:center;';
+    var inpL = inp.replace('text-align:center;', 'text-align:left;');
+
+    var attractRows = '';
+    if (d.attractions) {
+      d.attractions.forEach(function(a, i) {
+        var amount = a.amount || (a.tracking || 0) * (parseInt(a.name.match(/(\d+)/)?.[1]) || 0);
+        attractRows += '<tr style="border-bottom:1px solid #1e2736;' + (i%2===1 ? 'background:#151a28;' : '') + '">' +
+          '<td style="padding:6px;color:#e2e8f0;font-weight:600;text-align:left;">' + esc(a.name) + '</td>' +
+          '<td style="padding:4px;"><input type="number" min="0" class="ph-attr" data-idx="' + i + '" data-field="tracking" value="' + (a.tracking||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:4px;"><input type="number" min="0" class="ph-attr" data-idx="' + i + '" data-field="e_cash" value="' + (a.e_cash||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:6px;color:#6366f1;font-weight:600;">' + formatCurrency(amount) + '</td>' +
         '</tr>';
       });
     }
 
+    var hcRows = '';
+    if (d.head_count) {
+      d.head_count.forEach(function(h, i) {
+        hcRows += '<tr style="border-bottom:1px solid #1e2736;">' +
+          '<td style="padding:6px;color:#e2e8f0;font-weight:600;">' + esc(h.type) + '</td>' +
+          '<td style="padding:4px;"><input type="number" min="0" class="ph-hc" data-idx="' + i + '" data-field="child" value="' + (h.child||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:4px;"><input type="number" min="0" class="ph-hc" data-idx="' + i + '" data-field="senior" value="' + (h.senior||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:6px;color:#22c55e;font-weight:600;">' + (h.total_head||0) + '</td>' +
+          '<td style="padding:4px;"><input type="number" min="0" step="0.01" class="ph-hc" data-idx="' + i + '" data-field="amount" value="' + (h.amount||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:4px;"><input type="number" min="0" step="0.01" class="ph-hc" data-idx="' + i + '" data-field="e_cash" value="' + (h.e_cash||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:6px;color:#f59e0b;font-weight:600;">' + formatCurrency(h.total_sales||0) + '</td>' +
+        '</tr>';
+      });
+    }
+
+    var cashDenomRows = '';
+    var denoms = [1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.25];
+    denoms.forEach(function(k) {
+      var val = d.cash_denoms ? (d.cash_denoms[k] || 0) : 0;
+      var total = val * k;
+      cashDenomRows += '<tr style="border-bottom:1px solid #1e2736;">' +
+        '<td style="padding:4px;color:#e2e8f0;font-weight:600;">' + (k >= 100 ? k : (k === 0.25 ? '0.25' : k)) + '</td>' +
+        '<td style="padding:4px;"><input type="number" min="0" class="ph-cash" data-denom="' + k + '" value="' + val + '"' + dis + ' style="' + inp + '"></td>' +
+        '<td style="padding:4px;color:#6366f1;font-weight:600;">' + formatCurrency(total) + '</td>' +
+      '</tr>';
+    });
+
+    var expenseRows = '';
+    if (d.expenses_list && d.expenses_list.length > 0) {
+      d.expenses_list.forEach(function(ex, i) {
+        expenseRows += '<tr style="border-bottom:1px solid #1e2736;">' +
+          '<td style="padding:4px;"><input type="text" class="ph-exp" data-idx="' + i + '" data-field="desc" value="' + esc(ex.desc||'') + '"' + dis + ' style="' + inpL + '"></td>' +
+          '<td style="padding:4px;"><input type="number" min="0" step="0.01" class="ph-exp" data-idx="' + i + '" data-field="amount" value="' + (ex.amount||0) + '"' + dis + ' style="' + inp + '"></td>' +
+        '</tr>';
+      });
+    }
+
+    recalcPlayhouse();
+    var cashDenomTotal = 0;
+    if (d.cash_denoms) { denoms.forEach(function(k) { cashDenomTotal += (parseFloat(d.cash_denoms[k])||0)*k; }); }
+
     app.innerHTML = '<div class="layout">' + renderSidebar() +
-      '<div class="main-content">' + renderNavbar((sheet.id ? 'Edit' : 'New') + ' ' + sheet.area + ' Tracking Sheet') +
+      '<div class="main-content">' + renderNavbar('Playhouse Tracking Sheet') +
       '<div class="page-content" id="page-body" style="overflow-y:auto;">' +
+      renderHeaderButtons(isSubmitted) +
 
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">' +
-        '<div style="display:flex;gap:10px;align-items:center;">' +
-          '<button onclick="window.__tsBack()" style="background:#374151;color:#e2e8f0;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-size:0.85rem;">\u2190 Back</button>' +
-          '<span style="color:' + areaColor + ';font-weight:700;font-size:1.1rem;">' + (areaObj ? areaObj.icon : '') + ' ' + esc(sheet.area) + '</span>' +
-          '<span style="color:#888;font-size:0.85rem;">' + esc(sheet.sheet_date || '') + '</span>' +
-          (sheet.status ? '<span style="background:' + (sheet.status === 'submitted' ? '#22c55e' : '#f59e0b') + '22;color:' + (sheet.status === 'submitted' ? '#22c55e' : '#f59e0b') + ';padding:2px 10px;border-radius:4px;font-size:0.75rem;font-weight:600;">' + sheet.status.toUpperCase() + '</span>' : '') +
-        '</div>' +
-        '<div style="display:flex;gap:8px;">' +
-          (isSubmitted ? '' :
-            '<button onclick="window.__tsSave()" style="background:#6366f1;color:#fff;border:none;border-radius:6px;padding:8px 20px;cursor:pointer;font-weight:600;font-size:0.85rem;">Save</button>' +
-            '<button onclick="window.__tsSaveSubmit()" style="background:#22c55e;color:#fff;border:none;border-radius:6px;padding:8px 20px;cursor:pointer;font-weight:600;font-size:0.85rem;">Save & Submit</button>'
-          ) +
-          '<button onclick="window.__tsPrint()" style="background:#f59e0b;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:0.85rem;">\uD83D\uDDA8 Print</button>' +
-        '</div>' +
-      '</div>' +
+      '<div style="display:grid;grid-template-columns:1fr 260px;gap:20px;">' +
+      '<div id="tracking-print-area">' +
 
-      '<div style="display:grid;grid-template-columns:1fr 280px;gap:20px;">' +
-
-      '<div style="display:flex;flex-direction:column;gap:16px;">' +
-
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
-          '<div><label style="color:#94a3b8;font-size:0.75rem;display:block;margin-bottom:4px;">Cashier Name</label>' +
-          '<input type="text" id="ts-cashier" value="' + esc(sheet.cashier_name || '') + '"' + disabled + ' style="width:100%;background:' + inputBg + ';border:1px solid ' + inputBorder + ';border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
-          '<div><label style="color:#94a3b8;font-size:0.75rem;display:block;margin-bottom:4px;">Date</label>' +
-          '<input type="date" id="ts-date" value="' + esc(sheet.sheet_date || '') + '"' + disabled + ' style="width:100%;background:' + inputBg + ';border:1px solid ' + inputBorder + ';border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
-        '</div>' +
-
-        '<div id="tracking-print-area">' +
-        '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;overflow:hidden;">' +
+        '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;overflow:hidden;margin-bottom:16px;">' +
           '<div style="background:#1a5276;padding:10px 16px;text-align:center;">' +
-            '<div style="color:#fff;font-weight:700;font-size:0.9rem;text-transform:uppercase;">DLA ' + esc(sheet.area) + ' Tracking Sheet</div>' +
-            '<div style="color:#d6eaf8;font-size:0.7rem;">Items | Stocks | Count | Pcs</div>' +
+            '<div style="color:#fff;font-weight:700;font-size:0.9rem;">DLA PLAYHOUSE TRACKING SHEET</div>' +
           '</div>' +
-          '<div style="overflow-x:auto;">' +
-          '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;">' +
-          '<thead><tr style="border-bottom:2px solid #2a3040;">' +
-            '<th style="padding:8px 6px;color:#94a3b8;font-size:0.7rem;min-width:60px;">OPENING</th>' +
-            '<th style="padding:8px 6px;color:#94a3b8;font-size:0.7rem;min-width:70px;">ADD\'L PCS</th>' +
-            '<th style="padding:8px 6px;color:#94a3b8;font-size:0.7rem;min-width:60px;">TOTAL COUNT</th>' +
-            '<th style="padding:8px 6px;color:#94a3b8;font-size:0.7rem;min-width:160px;text-align:left;">ITEM DESCRIPTION</th>' +
-            '<th style="padding:8px 6px;color:#94a3b8;font-size:0.7rem;min-width:80px;">PCS TRACKING</th>' +
-            '<th style="padding:8px 6px;color:#94a3b8;font-size:0.7rem;min-width:70px;">SRP</th>' +
-            '<th style="padding:8px 6px;color:#94a3b8;font-size:0.7rem;min-width:60px;">TOTAL SOLD</th>' +
-            '<th style="padding:8px 6px;color:#94a3b8;font-size:0.7rem;min-width:80px;">AMOUNT</th>' +
-            '<th style="padding:8px 6px;color:#94a3b8;font-size:0.7rem;min-width:60px;">CLOSING</th>' +
-          '</tr></thead><tbody>' +
-          rowsHtml +
-          '</tbody></table></div></div></div>' +
 
-        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">' +
-          '<div><label style="color:#94a3b8;font-size:0.75rem;display:block;margin-bottom:4px;">Remarks (Short)</label>' +
-          '<input type="text" id="ts-remarks-short" value="' + esc(sheet.remarks_short || '') + '"' + disabled + ' style="width:100%;background:' + inputBg + ';border:1px solid ' + inputBorder + ';border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
-          '<div><label style="color:#94a3b8;font-size:0.75rem;display:block;margin-bottom:4px;">Remarks (Over)</label>' +
-          '<input type="text" id="ts-remarks-over" value="' + esc(sheet.remarks_over || '') + '"' + disabled + ' style="width:100%;background:' + inputBg + ';border:1px solid ' + inputBorder + ';border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
+          '<div style="padding:12px;">' +
+            '<div style="color:#f59e0b;font-weight:700;font-size:0.8rem;margin-bottom:8px;">ATTRACTIONS</div>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
+            '<thead><tr style="border-bottom:2px solid #2a3040;">' +
+              '<th style="padding:6px;color:#94a3b8;text-align:left;">ATTRACTIONS</th>' +
+              '<th style="padding:6px;color:#94a3b8;">TRACKING PER AMOUNT</th>' +
+              '<th style="padding:6px;color:#94a3b8;">E-CASH</th>' +
+              '<th style="padding:6px;color:#94a3b8;">AMOUNT</th>' +
+            '</tr></thead><tbody>' + attractRows + '</tbody></table>' +
+          '</div>' +
+
+          '<div style="padding:12px;border-top:1px solid #2a3040;">' +
+            '<div style="color:#22c55e;font-weight:700;font-size:0.8rem;margin-bottom:8px;">SALES (HEAD COUNT)</div>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
+            '<thead><tr style="border-bottom:2px solid #2a3040;">' +
+              '<th style="padding:6px;color:#94a3b8;"></th>' +
+              '<th style="padding:6px;color:#94a3b8;">CHILD</th>' +
+              '<th style="padding:6px;color:#94a3b8;">SENIOR</th>' +
+              '<th style="padding:6px;color:#94a3b8;">TOTAL HEAD</th>' +
+              '<th style="padding:6px;color:#94a3b8;">AMOUNT</th>' +
+              '<th style="padding:6px;color:#94a3b8;">E-CASH</th>' +
+              '<th style="padding:6px;color:#94a3b8;">TOTAL SALES</th>' +
+            '</tr></thead><tbody>' + hcRows + '</tbody></table>' +
+          '</div>' +
+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:12px;border-top:1px solid #2a3040;">' +
+            '<div>' +
+              '<div style="color:#ef4444;font-weight:700;font-size:0.8rem;margin-bottom:8px;">EXPENSES</div>' +
+              '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
+              '<thead><tr style="border-bottom:2px solid #2a3040;">' +
+                '<th style="padding:6px;color:#94a3b8;text-align:left;">DESC</th>' +
+                '<th style="padding:6px;color:#94a3b8;">AMOUNT</th>' +
+              '</tr></thead><tbody>' +
+              (expenseRows || '<tr><td colspan="2" style="padding:6px;color:#666;">No expenses</td></tr>') +
+              '</tbody></table>' +
+              (isSubmitted ? '' : '<button onclick="window.__tsAddExpense()" style="margin-top:6px;background:#374151;color:#e2e8f0;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;font-size:0.7rem;">+ Add</button>') +
+            '</div>' +
+            '<div>' +
+              '<div style="color:#6366f1;font-weight:700;font-size:0.8rem;margin-bottom:8px;">CASH</div>' +
+              '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
+              '<thead><tr style="border-bottom:2px solid #2a3040;">' +
+                '<th style="padding:6px;color:#94a3b8;">BILL</th>' +
+                '<th style="padding:6px;color:#94a3b8;">QTY</th>' +
+                '<th style="padding:6px;color:#94a3b8;">TOTAL</th>' +
+              '</tr></thead><tbody>' + cashDenomRows + '</tbody></table>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;border-top:1px solid #2a3040;">' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">CASHIER NAME</label>' +
+              '<input type="text" id="ts-cashier" value="' + esc(sheet.cashier_name||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">DATE</label>' +
+              '<input type="date" id="ts-date" value="' + esc(sheet.sheet_date||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">CASHFLOW</label>' +
+              '<div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#f59e0b;font-weight:700;font-size:0.9rem;">' + formatCurrency(sheet.cashflow||0) + '</div></div>' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">REMARKS</label>' +
+              '<input type="text" id="ts-remarks-short" value="' + esc(sheet.remarks_short||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+            '</div>' +
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">E-CASH</label>' +
+              '<div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#22c55e;font-weight:700;font-size:0.9rem;">' + formatCurrency(d.e_cash||0) + '</div></div>' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">TOTAL SALES</label>' +
+              '<div style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#22c55e;font-weight:700;font-size:0.9rem;">' + formatCurrency(sheet.total_sales||0) + '</div></div>' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">TOTAL CASH OH</label>' +
+              '<input type="number" min="0" step="0.01" id="ts-cash" value="' + (sheet.total_cash_on_hand||0) + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+              '<div><label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">OTHERS</label>' +
+              '<input type="number" min="0" step="0.01" id="ts-others" value="' + (sheet.others||0) + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;"></div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="padding:12px;border-top:1px solid #2a3040;">' +
+            '<label style="color:#888;font-size:0.7rem;display:block;margin-bottom:3px;">OTHERS | NOTES</label>' +
+            '<input type="text" id="ts-remarks-over" value="' + esc(sheet.remarks_over||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:6px;color:#e2e8f0;font-size:0.8rem;">' +
+          '</div>' +
+
         '</div>' +
       '</div>' +
 
       '<div style="display:flex;flex-direction:column;gap:12px;">' +
         '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
           '<div style="color:#94a3b8;font-size:0.75rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;">Summary</div>' +
-          '<div style="display:flex;flex-direction:column;gap:10px;">' +
-            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cashier</span><span style="color:#e2e8f0;font-weight:600;font-size:0.85rem;">' + esc(sheet.cashier_name || '-') + '</span></div>' +
-            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Total Items</span><span style="color:#e2e8f0;font-weight:600;font-size:0.85rem;">' + totalItems + '</span></div>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cashier</span><span style="color:#e2e8f0;font-weight:600;font-size:0.85rem;">' + esc(sheet.cashier_name||'-') + '</span></div>' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cash Denoms</span><span style="color:#6366f1;font-weight:600;font-size:0.85rem;">' + formatCurrency(cashDenomTotal) + '</span></div>' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">E-Cash</span><span style="color:#22c55e;font-weight:600;font-size:0.85rem;">' + formatCurrency(d.e_cash||0) + '</span></div>' +
             '<hr style="border:none;border-top:1px solid #2a3040;">' +
-            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Total Sales</span><span style="color:#22c55e;font-weight:700;font-size:0.95rem;" data-display="total-sales">' + formatCurrency(sheet.total_sales || 0) + '</span></div>' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Total Sales</span><span style="color:#22c55e;font-weight:700;font-size:1rem;">' + formatCurrency(sheet.total_sales||0) + '</span></div>' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cashflow</span><span style="color:#f59e0b;font-weight:700;font-size:1rem;">' + formatCurrency(sheet.cashflow||0) + '</span></div>' +
           '</div>' +
         '</div>' +
-
-        '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
-          '<div style="color:#94a3b8;font-size:0.75rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;">Cashflow</div>' +
-          '<div style="display:flex;flex-direction:column;gap:10px;">' +
-            '<div><label style="color:#888;font-size:0.75rem;display:block;margin-bottom:4px;">Total Cash On Hand</label>' +
-            '<input type="number" min="0" step="0.01" id="ts-cash" value="' + (sheet.total_cash_on_hand || 0) + '"' + disabled + ' style="width:100%;background:' + inputBg + ';border:1px solid ' + inputBorder + ';border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
-            '<div><label style="color:#888;font-size:0.75rem;display:block;margin-bottom:4px;">Expenses</label>' +
-            '<input type="number" min="0" step="0.01" id="ts-expenses" value="' + (sheet.expenses || 0) + '"' + disabled + ' style="width:100%;background:' + inputBg + ';border:1px solid ' + inputBorder + ';border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
-            '<div><label style="color:#888;font-size:0.75rem;display:block;margin-bottom:4px;">Others</label>' +
-            '<input type="number" min="0" step="0.01" id="ts-others" value="' + (sheet.others || 0) + '"' + disabled + ' style="width:100%;background:' + inputBg + ';border:1px solid ' + inputBorder + ';border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
-            '<hr style="border:none;border-top:1px solid #2a3040;">' +
-            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cashflow</span><span style="color:#f59e0b;font-weight:700;font-size:0.95rem;" data-display="cashflow">' + formatCurrency(sheet.cashflow || 0) + '</span></div>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-
       '</div>' +
 
       '</div></div></div>';
 
-    attachEditorEvents();
+    attachPlayhouseEvents();
+  }
+
+  function renderCafeEditor(isOwner) {
+    var sheet = editingSheet;
+    var isSubmitted = sheet.status === 'submitted';
+    var dis = isSubmitted ? ' disabled' : '';
+    var inp = 'width:100%;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:5px 6px;color:#e2e8f0;font-size:0.75rem;box-sizing:border-box;';
+    var totalItems = sheet.items ? sheet.items.length : 0;
+
+    var rowsHtml = '';
+    if (sheet.items && sheet.items.length > 0) {
+      sheet.items.forEach(function(item, idx) {
+        rowsHtml += '<tr style="border-bottom:1px solid #1e2736;' + (idx%2===1 ? 'background:#151a28;' : '') + '">' +
+          '<td style="padding:4px;"><input type="number" min="0" class="ts-item" data-idx="' + idx + '" data-field="opening" value="' + (item.opening||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:4px;"><input type="number" min="0" class="ts-item" data-idx="' + idx + '" data-field="additional_pcs" value="' + (item.additional_pcs||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:4px;color:#94a3b8;text-align:center;font-weight:600;">' + (item.total_count||0) + '</td>' +
+          '<td style="padding:4px;text-align:left;color:#e2e8f0;font-weight:500;">' + esc(item.item_description) + '</td>' +
+          '<td style="padding:4px;"><input type="number" min="0" step="0.01" class="ts-item" data-idx="' + idx + '" data-field="srp" value="' + (item.srp||0) + '"' + dis + ' style="' + inp + '"></td>' +
+          '<td style="padding:4px;color:#22c55e;text-align:center;font-weight:600;">' + (item.total_sold||0) + '</td>' +
+          '<td style="padding:4px;color:#6366f1;text-align:center;font-weight:600;">' + formatCurrency(item.amount||0) + '</td>' +
+          '<td style="padding:4px;"><input type="number" min="0" class="ts-item" data-idx="' + idx + '" data-field="closing" value="' + (item.closing||0) + '"' + dis + ' style="' + inp + '"></td>' +
+        '</tr>';
+      });
+    }
+
+    recalcPlayhouse();
+
+    app.innerHTML = '<div class="layout">' + renderSidebar() +
+      '<div class="main-content">' + renderNavbar('Cafe Tracking Sheet') +
+      '<div class="page-content" id="page-body" style="overflow-y:auto;">' +
+      renderHeaderButtons(isSubmitted) +
+
+      '<div style="display:grid;grid-template-columns:1fr 260px;gap:20px;">' +
+      '<div id="tracking-print-area">' +
+        '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;overflow:hidden;">' +
+          '<div style="background:#1a5276;padding:10px 16px;text-align:center;">' +
+            '<div style="color:#fff;font-weight:700;font-size:0.9rem;">DLA CAFE TRACKING SHEET</div>' +
+            '<div style="color:#d6eaf8;font-size:0.7rem;">Items | Stocks | Count | Pcs</div>' +
+          '</div>' +
+          '<div style="overflow-x:auto;">' +
+          '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;">' +
+          '<thead><tr style="border-bottom:2px solid #2a3040;">' +
+            '<th style="padding:8px 6px;color:#94a3b8;min-width:60px;">OPENING</th>' +
+            '<th style="padding:8px 6px;color:#94a3b8;min-width:70px;">ADD\'L PCS</th>' +
+            '<th style="padding:8px 6px;color:#94a3b8;min-width:60px;">TOTAL COUNT</th>' +
+            '<th style="padding:8px 6px;color:#94a3b8;min-width:160px;text-align:left;">ITEM DESCRIPTION</th>' +
+            '<th style="padding:8px 6px;color:#94a3b8;min-width:70px;">SRP</th>' +
+            '<th style="padding:8px 6px;color:#94a3b8;min-width:60px;">TOTAL SOLD</th>' +
+            '<th style="padding:8px 6px;color:#94a3b8;min-width:80px;">AMOUNT</th>' +
+            '<th style="padding:8px 6px;color:#94a3b8;min-width:60px;">CLOSING</th>' +
+          '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div></div></div>' +
+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">' +
+          '<div><label style="color:#94a3b8;font-size:0.75rem;display:block;margin-bottom:4px;">Remarks (Short)</label>' +
+          '<input type="text" id="ts-remarks-short" value="' + esc(sheet.remarks_short||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
+          '<div><label style="color:#94a3b8;font-size:0.75rem;display:block;margin-bottom:4px;">Remarks (Over)</label>' +
+          '<input type="text" id="ts-remarks-over" value="' + esc(sheet.remarks_over||'') + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="display:flex;flex-direction:column;gap:12px;">' +
+        '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
+          '<div style="color:#94a3b8;font-size:0.75rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;">Summary</div>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cashier</span><span style="color:#e2e8f0;font-weight:600;">' + esc(sheet.cashier_name||'-') + '</span></div>' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Total Items</span><span style="color:#e2e8f0;font-weight:600;">' + totalItems + '</span></div>' +
+            '<hr style="border:none;border-top:1px solid #2a3040;">' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Total Sales</span><span style="color:#22c55e;font-weight:700;font-size:0.95rem;">' + formatCurrency(sheet.total_sales||0) + '</span></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
+          '<div style="color:#94a3b8;font-size:0.75rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;">Cashflow</div>' +
+          '<div style="display:flex;flex-direction:column;gap:8px;">' +
+            '<div><label style="color:#888;font-size:0.75rem;display:block;margin-bottom:4px;">Total Cash On Hand</label>' +
+            '<input type="number" min="0" step="0.01" id="ts-cash" value="' + (sheet.total_cash_on_hand||0) + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
+            '<div><label style="color:#888;font-size:0.75rem;display:block;margin-bottom:4px;">Expenses</label>' +
+            '<input type="number" min="0" step="0.01" id="ts-expenses" value="' + (sheet.expenses||0) + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
+            '<div><label style="color:#888;font-size:0.75rem;display:block;margin-bottom:4px;">Others</label>' +
+            '<input type="number" min="0" step="0.01" id="ts-others" value="' + (sheet.others||0) + '"' + dis + ' style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;"></div>' +
+            '<hr style="border:none;border-top:1px solid #2a3040;">' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#888;font-size:0.8rem;">Cashflow</span><span style="color:#f59e0b;font-weight:700;font-size:0.95rem;">' + formatCurrency(sheet.cashflow||0) + '</span></div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+
+      '</div></div></div>';
+
+    attachCafeEvents();
   }
 
   function attachListEvents() {
     document.getElementById('logout-btn')?.addEventListener('click', function(e) { e.preventDefault(); Auth.logout(); });
-    document.getElementById('ts-branch')?.addEventListener('change', async function(e) {
-      selectedBranch = e.target.value;
-      await loadProducts();
-      await loadSheets();
-    });
+    document.getElementById('ts-branch')?.addEventListener('change', async function(e) { selectedBranch = e.target.value; await loadProducts(); await loadSheets(); });
     document.getElementById('ts-filter-area')?.addEventListener('change', function(e) { filterArea = e.target.value; loadSheets(); });
     document.getElementById('ts-filter-status')?.addEventListener('change', function(e) { filterStatus = e.target.value; loadSheets(); });
     document.getElementById('ts-filter-date')?.addEventListener('change', function(e) { filterDate = e.target.value; loadSheets(); });
   }
 
-  function attachEditorEvents() {
+  function attachPlayhouseEvents() {
     document.getElementById('logout-btn')?.addEventListener('click', function(e) { e.preventDefault(); Auth.logout(); });
+    document.querySelectorAll('.ph-attr').forEach(function(el) {
+      el.addEventListener('change', function() {
+        var idx = parseInt(el.dataset.idx);
+        var field = el.dataset.field;
+        if (editingSheet.data && editingSheet.data.attractions && editingSheet.data.attractions[idx]) {
+          editingSheet.data.attractions[idx][field] = parseFloat(el.value) || 0;
+        }
+      });
+    });
+    document.querySelectorAll('.ph-hc').forEach(function(el) {
+      el.addEventListener('change', function() {
+        var idx = parseInt(el.dataset.idx);
+        var field = el.dataset.field;
+        if (editingSheet.data && editingSheet.data.head_count && editingSheet.data.head_count[idx]) {
+          editingSheet.data.head_count[idx][field] = parseFloat(el.value) || 0;
+        }
+      });
+    });
+    document.querySelectorAll('.ph-cash').forEach(function(el) {
+      el.addEventListener('change', function() {
+        var denom = parseFloat(el.dataset.denom);
+        if (editingSheet.data && editingSheet.data.cash_denoms) {
+          editingSheet.data.cash_denoms[denom] = parseFloat(el.value) || 0;
+        }
+      });
+    });
+    document.querySelectorAll('.ph-exp').forEach(function(el) {
+      el.addEventListener('change', function() {
+        var idx = parseInt(el.dataset.idx);
+        var field = el.dataset.field;
+        if (editingSheet.data && editingSheet.data.expenses_list && editingSheet.data.expenses_list[idx]) {
+          editingSheet.data.expenses_list[idx][field] = field === 'desc' ? el.value : (parseFloat(el.value) || 0);
+        }
+      });
+    });
+  }
 
+  function attachCafeEvents() {
+    document.getElementById('logout-btn')?.addEventListener('click', function(e) { e.preventDefault(); Auth.logout(); });
     document.querySelectorAll('.ts-item').forEach(function(input) {
       input.addEventListener('change', function() {
         var idx = parseInt(input.dataset.idx);
@@ -442,13 +672,6 @@ function renderAdminTracking() {
           editingSheet.items[idx][field] = parseFloat(input.value) || 0;
         }
       });
-    });
-
-    ['ts-cashier', 'ts-date', 'ts-cash', 'ts-expenses', 'ts-others', 'ts-remarks-short', 'ts-remarks-over'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) {
-        el.addEventListener('input', function() {});
-      }
     });
   }
 
@@ -459,21 +682,18 @@ function renderAdminTracking() {
 
   window.__tsNew = function(area) { createNewSheet(area); };
   window.__tsBack = function() { editingSheet = null; view = 'list'; loadSheets(); };
-  window.__tsEdit = function(id) {
-    var s = sheets.find(function(s) { return s.id === id; });
-    if (s) editSheet(s);
-  };
-  window.__tsView = function(id) {
-    var s = sheets.find(function(s) { return s.id === id; });
-    if (s) editSheet(s);
-  };
-  window.__tsSubmit = function(id) {
-    var s = sheets.find(function(s) { return s.id === id; });
-    if (s) submitSheet(s);
-  };
+  window.__tsEdit = function(id) { var s = sheets.find(function(s) { return s.id === id; }); if (s) editSheet(s); };
+  window.__tsView = function(id) { var s = sheets.find(function(s) { return s.id === id; }); if (s) editSheet(s); };
+  window.__tsSubmit = function(id) { var s = sheets.find(function(s) { return s.id === id; }); if (s) submitSheet(s); };
   window.__tsSave = function() { saveSheet(false); };
   window.__tsSaveSubmit = function() { saveSheet(true); };
   window.__tsPrint = function() { printSheet(); };
+  window.__tsAddExpense = function() {
+    if (!editingSheet || !editingSheet.data) return;
+    if (!editingSheet.data.expenses_list) editingSheet.data.expenses_list = [];
+    editingSheet.data.expenses_list.push({ desc: '', amount: 0 });
+    render();
+  };
 
   loadData();
 }

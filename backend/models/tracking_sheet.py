@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Numeric, Date, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -19,6 +20,7 @@ class TrackingSheet(Base):
     cashflow = Column(Numeric(10, 2), default=0)
     remarks_short = Column(Text, nullable=True)
     remarks_over = Column(Text, nullable=True)
+    data = Column(JSONB, default={})
     status = Column(String(20), default="draft")
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

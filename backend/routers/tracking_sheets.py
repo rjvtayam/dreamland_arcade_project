@@ -33,6 +33,7 @@ def build_response(ts, db):
         "cashflow": float(ts.cashflow or 0),
         "remarks_short": ts.remarks_short,
         "remarks_over": ts.remarks_over,
+        "data": ts.data or {},
         "status": ts.status,
         "created_by": ts.created_by,
         "creator_name": f"{creator.first_name} {creator.last_name}" if creator else None,
@@ -168,6 +169,7 @@ def create_sheet(
         cashflow=data.cashflow,
         remarks_short=data.remarks_short,
         remarks_over=data.remarks_over,
+        data=data.data or {},
         status="draft",
         created_by=current_user.id
     )
@@ -217,6 +219,7 @@ def update_sheet(
     if data.cashflow is not None: ts.cashflow = data.cashflow
     if data.remarks_short is not None: ts.remarks_short = data.remarks_short
     if data.remarks_over is not None: ts.remarks_over = data.remarks_over
+    if data.data is not None: ts.data = data.data
 
     if data.items is not None:
         db.query(TrackingSheetItem).filter(TrackingSheetItem.tracking_sheet_id == ts.id).delete()

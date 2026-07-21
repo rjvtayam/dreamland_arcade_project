@@ -35,6 +35,7 @@ class TrackingSheetCreate(BaseModel):
     cashflow: float = 0
     remarks_short: Optional[str] = None
     remarks_over: Optional[str] = None
+    data: Optional[dict] = None
     items: List[TrackingSheetItemCreate] = []
 
 
@@ -47,6 +48,7 @@ class TrackingSheetUpdate(BaseModel):
     cashflow: Optional[float] = None
     remarks_short: Optional[str] = None
     remarks_over: Optional[str] = None
+    data: Optional[dict] = None
     items: Optional[List[TrackingSheetItemCreate]] = None
 
 
@@ -63,6 +65,7 @@ class TrackingSheetResponse(BaseModel):
     cashflow: float
     remarks_short: Optional[str] = None
     remarks_over: Optional[str] = None
+    data: Optional[dict] = None
     status: str
     created_by: Optional[int] = None
     created_at: Optional[datetime] = None
