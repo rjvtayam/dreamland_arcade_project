@@ -162,6 +162,25 @@
     transform: translateY(-1px);
 }
 
+.landing-nav-pos {
+    padding: 8px 24px;
+    background: transparent;
+    border: 1px solid #22c55e;
+    border-radius: 8px;
+    color: #22c55e;
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+.landing-nav-pos:hover {
+    background: rgba(34, 197, 94, 0.1);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+    transform: translateY(-1px);
+}
+
 .landing-hero {
     margin-top: 1rem;
     margin-bottom: 3rem;
@@ -285,6 +304,11 @@
 
 .landing-cta {
     margin-bottom: 2rem;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
 .landing-enter-btn {
@@ -419,7 +443,69 @@
     .landing-content {
         padding-top: 5.5rem;
     }
-    .landing-branches {
+.landing-pos-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 40px;
+    background: transparent;
+    border: 1px solid #22c55e;
+    border-radius: 12px;
+    color: #22c55e;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+.landing-pos-btn::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.15), transparent);
+    transition: left 0.5s ease;
+}
+.landing-pos-btn:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.4), 0 0 60px rgba(34, 197, 94, 0.15);
+    background: rgba(34, 197, 94, 0.08);
+}
+.landing-pos-btn:hover::before {
+    left: 100%;
+}
+.landing-pos-btn:active {
+    transform: translateY(0) scale(0.98);
+}
+
+.pos-login-page .login-card {
+    border-color: rgba(34, 197, 94, 0.2);
+}
+.pos-login-page .login-card:hover {
+    border-color: rgba(34, 197, 94, 0.4);
+    box-shadow: 0 0 40px rgba(34, 197, 94, 0.1);
+}
+.pos-login-btn {
+    background: linear-gradient(135deg, #22c55e, #10b981) !important;
+    border: 1px solid #22c55e !important;
+}
+.pos-login-btn:hover:not(:disabled) {
+    box-shadow: 0 0 30px rgba(34, 197, 94, 0.4) !important;
+}
+.pos-keypad {
+    transition: all 0.15s ease;
+}
+.pos-keypad:hover {
+    background: rgba(34, 197, 94, 0.15) !important;
+    border-color: #22c55e !important;
+    color: #22c55e !important;
+}
+
+.landing-branches {
         flex-direction: column;
         align-items: center;
         gap: 0.75rem;

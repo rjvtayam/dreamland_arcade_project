@@ -26,7 +26,10 @@ function renderLanding() {
                 '<div class="landing-nav-logo">🕹️</div>' +
                 '<div class="landing-nav-title">DREAMLAND</div>' +
             '</div>' +
-            '<button class="landing-nav-enter" onclick="Router.navigate(\'login\')">ENTER</button>' +
+            '<div style="display:flex;gap:10px;align-items:center;">' +
+                '<button class="landing-nav-pos" onclick="Router.navigate(\'pos-login\')">POS</button>' +
+                '<button class="landing-nav-enter" onclick="Router.navigate(\'login\')">ENTER</button>' +
+            '</div>' +
         '</nav>' +
 
         '<div class="landing-content">' +
@@ -68,7 +71,11 @@ function renderLanding() {
             '<div class="landing-cta">' +
                 '<button class="landing-enter-btn" onclick="Router.navigate(\'login\')">' +
                     'ENTER ARCADE' +
-                    '<span class="landing-enter-arrow">→</span>' +
+                    '<span class="landing-enter-arrow">\u2192</span>' +
+                '</button>' +
+                '<button class="landing-pos-btn" onclick="Router.navigate(\'pos-login\')">' +
+                    '<span style="font-size:1.1rem;">\u25B6</span>' +
+                    'POS TERMINAL' +
                 '</button>' +
             '</div>' +
 
@@ -85,9 +92,10 @@ function renderLanding() {
         '</div>' +
 
         '<footer class="landing-footer">' +
-            '<div class="landing-footer-text">© 2026 DREAMLAND ARCADE — MANAGEMENT SYSTEM</div>' +
+            '<div class="landing-footer-text">\u00a9 2026 DREAMLAND ARCADE \u2014 MANAGEMENT SYSTEM</div>' +
             '<div class="landing-footer-links">' +
                 '<span class="landing-footer-link" onclick="Router.navigate(\'login\')">Staff Login</span>' +
+                '<span class="landing-footer-link" onclick="Router.navigate(\'pos-login\')" style="color:#22c55e;">POS Terminal</span>' +
             '</div>' +
         '</footer>' +
     '</div>';

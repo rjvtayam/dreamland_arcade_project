@@ -19,7 +19,9 @@ const Router = {
         const hash = window.location.hash.slice(1) || 'landing';
         const routeKey = hash.split('/')[0];
 
-        if (!Auth.isAuthenticated() && routeKey !== 'login' && routeKey !== 'landing') {
+        const publicRoutes = ['login', 'landing', 'pos-login', 'pos-terminal'];
+
+        if (!Auth.isAuthenticated() && !publicRoutes.includes(routeKey)) {
             this.navigate('landing');
             return;
         }
@@ -33,7 +35,9 @@ const Router = {
         if (renderFn) {
             this.currentPage = routeKey;
             renderFn(hash);
-            this.updateActiveNav(routeKey);
+            if (routeKey !== 'pos-terminal') {
+                this.updateActiveNav(routeKey);
+            }
         } else {
             this.navigate('dashboard');
         }
