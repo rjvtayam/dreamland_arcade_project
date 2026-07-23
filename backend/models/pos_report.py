@@ -19,6 +19,8 @@ class POSReport(Base):
     cash_sales = Column(Numeric(10, 2), default=0)
     gcash_sales = Column(Numeric(10, 2), default=0)
     card_sales = Column(Numeric(10, 2), default=0)
+    smash_sales = Column(Numeric(10, 2), default=0)
+    extra_token_count = Column(Integer, default=0)
     items_summary = Column(JSONB, default=[])
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

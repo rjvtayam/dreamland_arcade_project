@@ -56,24 +56,44 @@ def create_sale(db: Session, branch_id: int, sold_by: int, items: List[dict], pa
     total = 0
     sale_items = []
     for item_data in items:
-        product = db.query(Product).filter(
-            Product.id == item_data["product_id"],
-            Product.branch_id == branch_id,
-            Product.is_active == True
-        ).first()
-        if not product:
-            raise HTTPException(status_code=404, detail=f"Product {item_data['product_id']} not found")
-        if product.stock < item_data["quantity"]:
-            raise HTTPException(status_code=400, detail=f"Insufficient stock for {product.name}")
-        product.stock -= item_data["quantity"]
-        subtotal = float(product.price) * item_data["quantity"]
-        total += subtotal
-        sale_items.append({
-            "product_id": product.id,
-            "quantity": item_data["quantity"],
-            "unit_price": float(product.price),
-            "subtotal": subtotal
-        })
+        item_type = item_data.get("item_type", "regular")
+        token_count = item_data.get("token_count", 0)
+        custom_price = item_data.get("custom_price")
+
+        if item_type in ("smash", "extra"):
+            unit_price = float(custom_price or 0)
+            qty = item_data.get("quantity", 1)
+            subtotal = unit_price * qty
+            total += subtotal
+            sale_items.append({
+                "product_id": None,
+                "quantity": qty,
+                "unit_price": unit_price,
+                "subtotal": subtotal,
+                "item_type": item_type,
+                "token_count": token_count * qty
+            })
+        else:
+            product = db.query(Product).filter(
+                Product.id == item_data["product_id"],
+                Product.branch_id == branch_id,
+                Product.is_active == True
+            ).first()
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Product {item_data['product_id']} not found")
+            if product.stock < item_data["quantity"]:
+                raise HTTPException(status_code=400, detail=f"Insufficient stock for {product.name}")
+            product.stock -= item_data["quantity"]
+            subtotal = float(product.price) * item_data["quantity"]
+            total += subtotal
+            sale_items.append({
+                "product_id": product.id,
+                "quantity": item_data["quantity"],
+                "unit_price": float(product.price),
+                "subtotal": subtotal,
+                "item_type": "regular",
+                "token_count": 0
+            })
 
     sale = Sale(
         branch_id=branch_id,

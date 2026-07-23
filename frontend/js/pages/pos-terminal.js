@@ -18,6 +18,10 @@ function renderPOSTerminal() {
     var tracking = [];
     var loyaltyMember = null;
     var productCustomizations = {};
+    var smashQty = 0;
+    var smashPrice = 0;
+    var extraQty = 0;
+    var extraPrice = 0;
 
     var AREAS = [
         { id: 'Arcade', icon: '\ud83c\udfae', color: '#6366f1' },
@@ -221,6 +225,39 @@ function renderPOSTerminal() {
                     '</div>' +
                 '</div>' : '') +
 
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+                '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
+                    '<div style="color:#f59e0b;font-size:0.8rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">SMASH (Single Tokens)</div>' +
+                    '<div style="color:#94a3b8;font-size:0.7rem;margin-bottom:10px;">For buying 1-2 tokens at a time</div>' +
+                    '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
+                        '<div style="flex:1;">' +
+                            '<label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">Qty</label>' +
+                            '<input type="number" id="smash-qty" min="0" value="' + smashQty + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;">' +
+                        '</div>' +
+                        '<div style="flex:1;">' +
+                            '<label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">\u20b1 Price</label>' +
+                            '<input type="number" id="smash-price" min="0" value="' + smashPrice + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;">' +
+                        '</div>' +
+                    '</div>' +
+                    '<button onclick="window.__posAddSmash()" style="width:100%;padding:8px;border:none;border-radius:6px;background:#f59e0b;color:#000;font-size:0.8rem;font-weight:600;cursor:pointer;">+ Add Smash</button>' +
+                '</div>' +
+                '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
+                    '<div style="color:#ef4444;font-size:0.8rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">EXTRA TOKEN (Service)</div>' +
+                    '<div style="color:#94a3b8;font-size:0.7rem;margin-bottom:10px;">For tracking borrowed/lent tokens</div>' +
+                    '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
+                        '<div style="flex:1;">' +
+                            '<label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">Qty</label>' +
+                            '<input type="number" id="extra-qty" min="0" value="' + extraQty + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;">' +
+                        '</div>' +
+                        '<div style="flex:1;">' +
+                            '<label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">\u20b1 Price</label>' +
+                            '<input type="number" id="extra-price" min="0" value="' + extraPrice + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;">' +
+                        '</div>' +
+                    '</div>' +
+                    '<button onclick="window.__posAddExtra()" style="width:100%;padding:8px;border:none;border-radius:6px;background:#ef4444;color:#fff;font-size:0.8rem;font-weight:600;cursor:pointer;">+ Add Extra</button>' +
+                '</div>' +
+            '</div>' +
+
             (others.length > 0 ?
                 '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;flex:1;">' +
                     '<div style="color:#94a3b8;font-size:0.8rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Other Items</div>' +
@@ -253,12 +290,13 @@ function renderPOSTerminal() {
 
             '<div style="flex:1;overflow-y:auto;padding:12px;">' +
             (cart.length === 0 ? '<div style="text-align:center;padding:40px 0;color:#666;">Cart is empty</div>' :
-                cart.map(function(item) {
+                cart.map(function(item, idx) {
                     var areaObj = AREAS.find(function(a) { return a.id === item.area; });
-                    var areaColor = areaObj ? areaObj.color : '#6366f1';
+                    var areaColor = item.item_type === 'smash' ? '#f59e0b' : item.item_type === 'extra' ? '#ef4444' : (areaObj ? areaObj.color : '#6366f1');
+                    var typeTag = item.item_type === 'smash' ? '<span style="color:#f59e0b;font-size:0.6rem;font-weight:700;background:#f59e0b20;padding:2px 6px;border-radius:4px;">SMASH</span> ' : item.item_type === 'extra' ? '<span style="color:#ef4444;font-size:0.6rem;font-weight:700;background:#ef444420;padding:2px 6px;border-radius:4px;">EXTRA</span> ' : '';
                     return '<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#161b22;border-radius:8px;margin-bottom:8px;border-left:3px solid ' + areaColor + ';">' +
                         '<div style="flex:1;min-width:0;">' +
-                            '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(item.name) + '</div>' +
+                            '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + typeTag + esc(item.name) + '</div>' +
                             '<div style="display:flex;gap:8px;align-items:center;">' +
                                 '<span style="color:' + areaColor + ';font-size:0.65rem;font-weight:600;">' + (item.area || 'Arcade') + '</span>' +
                                 '<span style="color:#6366f1;font-size:0.8rem;">' + formatCurrency(item.price) + '</span>' +
@@ -266,13 +304,13 @@ function renderPOSTerminal() {
                             '</div>' +
                         '</div>' +
                         '<div style="display:flex;align-items:center;gap:6px;">' +
-                            '<button onclick="window.__posQty(\'' + item.product_id + '\',-1)" style="width:28px;height:28px;border-radius:6px;border:1px solid #30363d;background:#1a1f2e;color:#e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9rem;">-</button>' +
+                            '<button onclick="window.__posQtyIdx(' + idx + ',-1)" style="width:28px;height:28px;border-radius:6px;border:1px solid #30363d;background:#1a1f2e;color:#e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9rem;">-</button>' +
                             '<span style="color:#e2e8f0;font-weight:600;min-width:24px;text-align:center;">' + item.quantity + '</span>' +
-                            '<button onclick="window.__posQty(\'' + item.product_id + '\',1)" style="width:28px;height:28px;border-radius:6px;border:1px solid #30363d;background:#1a1f2e;color:#e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9rem;">+</button>' +
+                            '<button onclick="window.__posQtyIdx(' + idx + ',1)" style="width:28px;height:28px;border-radius:6px;border:1px solid #30363d;background:#1a1f2e;color:#e2e8f0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9rem;">+</button>' +
                         '</div>' +
                         '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;">' +
                             '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;">' + formatCurrency(item.price * item.quantity) + '</div>' +
-                            '<button onclick="window.__posRemove(\'' + item.product_id + '\')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.7rem;padding:0;">remove</button>' +
+                            '<button onclick="window.__posRemoveIdx(' + idx + ')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.7rem;padding:0;">remove</button>' +
                         '</div>' +
                     '</div>';
                 }).join('')) +
@@ -319,6 +357,15 @@ function renderPOSTerminal() {
         if (saleBtn && cart.length > 0) {
             saleBtn.addEventListener('click', completeSale);
         }
+
+        var smashQtyInput = document.getElementById('smash-qty');
+        var smashPriceInput = document.getElementById('smash-price');
+        var extraQtyInput = document.getElementById('extra-qty');
+        var extraPriceInput = document.getElementById('extra-price');
+        if (smashQtyInput) smashQtyInput.addEventListener('change', function(e) { smashQty = parseInt(e.target.value) || 0; });
+        if (smashPriceInput) smashPriceInput.addEventListener('change', function(e) { smashPrice = parseInt(e.target.value) || 0; });
+        if (extraQtyInput) extraQtyInput.addEventListener('change', function(e) { extraQty = parseInt(e.target.value) || 0; });
+        if (extraPriceInput) extraPriceInput.addEventListener('change', function(e) { extraPrice = parseInt(e.target.value) || 0; });
     }
 
     function renderEditModal(productId) {
@@ -416,6 +463,54 @@ function renderPOSTerminal() {
     window.__posRemove = function(id) { removeFromCart(id); };
     window.__posArea = function(area) { activeArea = area; render(); };
 
+    window.__posQtyIdx = function(idx, delta) {
+        if (idx < 0 || idx >= cart.length) return;
+        cart[idx].quantity += delta;
+        if (cart[idx].quantity <= 0) { cart.splice(idx, 1); }
+        render();
+    };
+
+    window.__posRemoveIdx = function(idx) {
+        if (idx < 0 || idx >= cart.length) return;
+        cart.splice(idx, 1);
+        render();
+    };
+
+    window.__posAddSmash = function() {
+        if (smashQty <= 0) { Toast.error('Enter quantity'); return; }
+        if (smashPrice <= 0) { Toast.error('Enter price'); return; }
+        var name = 'Smash (' + smashQty + ' token' + (smashQty > 1 ? 's' : '') + ')';
+        var existing = cart.find(function(c) { return c.item_type === 'smash'; });
+        if (existing) {
+            existing.quantity = smashQty;
+            existing.price = smashPrice;
+            existing.subtotal = smashPrice * smashQty;
+            existing.token_count = smashQty;
+            existing.name = name;
+        } else {
+            cart.push({ product_id: null, name: name, price: smashPrice, quantity: smashQty, stock: 9999, area: activeArea, item_type: 'smash', token_count: smashQty });
+        }
+        render();
+        Toast.success('Smash added');
+    };
+
+    window.__posAddExtra = function() {
+        if (extraQty <= 0) { Toast.error('Enter quantity'); return; }
+        var name = 'Extra Token (' + extraQty + ' token' + (extraQty > 1 ? 's' : '') + ')';
+        var existing = cart.find(function(c) { return c.item_type === 'extra'; });
+        if (existing) {
+            existing.quantity = extraQty;
+            existing.price = extraPrice;
+            existing.subtotal = extraPrice * extraQty;
+            existing.token_count = extraQty;
+            existing.name = name;
+        } else {
+            cart.push({ product_id: null, name: name, price: extraPrice, quantity: extraQty, stock: 9999, area: activeArea, item_type: 'extra', token_count: extraQty });
+        }
+        render();
+        Toast.success('Extra token added');
+    };
+
     window.__posLookupMember = async function() {
         var input = document.getElementById('loyalty-card-input');
         if (!input) return;
@@ -471,7 +566,15 @@ function renderPOSTerminal() {
             var areaItems = areaTotals[area];
             var data = {
                 branch_id: selectedBranch,
-                items: areaItems.map(function(item) { return { product_id: item.product_id, quantity: item.quantity }; }),
+                items: areaItems.map(function(item) {
+                    var d = { product_id: item.product_id, quantity: item.quantity };
+                    if (item.item_type === 'smash' || item.item_type === 'extra') {
+                        d.item_type = item.item_type;
+                        d.custom_price = item.price;
+                        d.token_count = item.token_count || 0;
+                    }
+                    return d;
+                }),
                 payment_method: paymentMethod,
                 area: area
             };

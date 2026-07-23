@@ -47,15 +47,32 @@ def submit_daily_report(
     card_sales = sum(float(s.total_amount) for s in sales if s.payment_method == "Card")
 
     product_totals = {}
+    smash_sales = 0
+    extra_token_count = 0
     for s in sales:
         items = db.query(SaleItem).filter(SaleItem.sale_id == s.id).all()
         for si in items:
-            prod = db.query(Product).filter(Product.id == si.product_id).first()
-            name = prod.name if prod else "Unknown"
-            if name not in product_totals:
-                product_totals[name] = {"name": name, "quantity": 0, "revenue": 0}
-            product_totals[name]["quantity"] += si.quantity
-            product_totals[name]["revenue"] += float(si.subtotal)
+            if si.item_type == "smash":
+                smash_sales += float(si.subtotal)
+                name = f"Smash ({si.token_count} tokens)"
+                if name not in product_totals:
+                    product_totals[name] = {"name": name, "quantity": 0, "revenue": 0, "type": "smash"}
+                product_totals[name]["quantity"] += si.quantity
+                product_totals[name]["revenue"] += float(si.subtotal)
+            elif si.item_type == "extra":
+                extra_token_count += si.token_count
+                name = f"Extra Token ({si.token_count} tokens)"
+                if name not in product_totals:
+                    product_totals[name] = {"name": name, "quantity": 0, "revenue": 0, "type": "extra"}
+                product_totals[name]["quantity"] += si.quantity
+                product_totals[name]["revenue"] += float(si.subtotal)
+            else:
+                prod = db.query(Product).filter(Product.id == si.product_id).first()
+                name = prod.name if prod else "Unknown"
+                if name not in product_totals:
+                    product_totals[name] = {"name": name, "quantity": 0, "revenue": 0, "type": "regular"}
+                product_totals[name]["quantity"] += si.quantity
+                product_totals[name]["revenue"] += float(si.subtotal)
 
     items_summary = sorted(product_totals.values(), key=lambda x: x["revenue"], reverse=True)
 
@@ -71,6 +88,8 @@ def submit_daily_report(
         cash_sales=cash_sales,
         gcash_sales=gcash_sales,
         card_sales=card_sales,
+        smash_sales=smash_sales,
+        extra_token_count=extra_token_count,
         items_summary=items_summary,
         notes=notes
     )
@@ -121,6 +140,8 @@ def list_reports(
             "cash_sales": float(r.cash_sales),
             "gcash_sales": float(r.gcash_sales),
             "card_sales": float(r.card_sales),
+            "smash_sales": float(r.smash_sales) if r.smash_sales else 0,
+            "extra_token_count": r.extra_token_count or 0,
             "items_summary": r.items_summary or [],
             "notes": r.notes,
             "created_at": r.created_at.isoformat() if r.created_at else None
@@ -158,6 +179,8 @@ def latest_report(
         "cash_sales": float(report.cash_sales),
         "gcash_sales": float(report.gcash_sales),
         "card_sales": float(report.card_sales),
+        "smash_sales": float(report.smash_sales) if report.smash_sales else 0,
+        "extra_token_count": report.extra_token_count or 0,
         "items_summary": report.items_summary or [],
         "notes": report.notes,
         "created_at": report.created_at.isoformat() if report.created_at else None

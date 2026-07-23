@@ -81,6 +81,15 @@ function renderPOSReports() {
           '<div style="color:#e2e8f0;font-weight:700;font-size:1.1rem;">' + formatCurrency(r.card_sales) + '</div></div>' +
       '</div>' +
 
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">' +
+        '<div style="background:#1a1f2e;border:1px solid #f59e0b30;border-radius:10px;padding:14px;text-align:center;">' +
+          '<div style="color:#888;font-size:0.65rem;">SMASH SALES</div>' +
+          '<div style="color:#f59e0b;font-weight:700;font-size:1.1rem;">' + formatCurrency(r.smash_sales || 0) + '</div></div>' +
+        '<div style="background:#1a1f2e;border:1px solid #ef444430;border-radius:10px;padding:14px;text-align:center;">' +
+          '<div style="color:#888;font-size:0.65rem;">EXTRA TOKENS</div>' +
+          '<div style="color:#ef4444;font-weight:700;font-size:1.1rem;">' + (r.extra_token_count || 0) + ' tokens</div></div>' +
+      '</div>' +
+
       (r.notes ? '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;margin-bottom:20px;"><div style="color:#94a3b8;font-size:0.75rem;font-weight:600;margin-bottom:6px;">NOTES</div><div style="color:#e2e8f0;font-size:0.9rem;">' + esc(r.notes) + '</div></div>' : '') +
 
       (items.length > 0 ?
@@ -92,8 +101,9 @@ function renderPOSReports() {
             '<th style="padding:10px 16px;text-align:right;color:#94a3b8;font-size:0.8rem;">REVENUE</th>' +
           '</tr></thead><tbody>' +
           items.map(function(item) {
+            var typeTag = item.type === 'smash' ? ' <span style="color:#f59e0b;font-size:0.65rem;font-weight:700;background:#f59e0b20;padding:2px 6px;border-radius:4px;">SMASH</span>' : item.type === 'extra' ? ' <span style="color:#ef4444;font-size:0.65rem;font-weight:700;background:#ef444420;padding:2px 6px;border-radius:4px;">EXTRA</span>' : '';
             return '<tr style="border-bottom:1px solid #1e2736;">' +
-              '<td style="padding:10px 16px;color:#e2e8f0;font-size:0.85rem;">' + esc(item.name) + '</td>' +
+              '<td style="padding:10px 16px;color:#e2e8f0;font-size:0.85rem;">' + esc(item.name) + typeTag + '</td>' +
               '<td style="padding:10px 16px;text-align:center;color:#e2e8f0;">' + item.quantity + '</td>' +
               '<td style="padding:10px 16px;text-align:right;color:#22c55e;">' + formatCurrency(item.revenue) + '</td>' +
             '</tr>';
