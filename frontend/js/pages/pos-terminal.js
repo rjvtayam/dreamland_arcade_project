@@ -206,9 +206,9 @@ function renderPOSTerminal() {
             '</div>' +
         '</div>' +
 
-        '<div style="flex:1;display:grid;grid-template-columns:1fr 380px;gap:0;overflow:hidden;min-height:0;">' +
+        '<div style="flex:1;display:flex;overflow:hidden;min-height:0;">' +
 
-        '<div style="display:flex;flex-direction:column;gap:12px;padding:16px 20px;overflow-y:auto;min-height:0;">' +
+        '<div style="flex:1;display:flex;flex-direction:column;gap:12px;padding:16px 20px;overflow-y:auto;min-height:0;">' +
 
             '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
                 '<input type="text" id="pos-search" placeholder="Search products..." style="flex:1;min-width:200px;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:0.85rem;" value="' + esc(searchQuery) + '">' +
@@ -361,7 +361,7 @@ function renderPOSTerminal() {
 
         '</div>' +
 
-        '<div style="background:#0d1117;border-left:1px solid #2a3040;display:flex;flex-direction:column;overflow:hidden;">' +
+        '<div style="background:#0d1117;border-left:1px solid #2a3040;display:flex;flex-direction:column;overflow:hidden;width:380px;flex-shrink:0;">' +
             '<div style="padding:16px 20px;border-bottom:1px solid #2a3040;display:flex;justify-content:space-between;align-items:center;">' +
                 '<h3 style="color:#e2e8f0;margin:0;font-size:1rem;">Cart</h3>' +
                 '<span style="color:#888;font-size:0.8rem;">' + cart.reduce(function(s, i) { return s + i.quantity; }, 0) + ' items</span>' +
@@ -572,16 +572,16 @@ function renderPOSTerminal() {
     window.__posAddSmash = function() {
         if (smashQty <= 0) { Toast.error('Enter quantity'); return; }
         if (smashPrice <= 0) { Toast.error('Enter price'); return; }
+        var perToken = smashPrice / smashQty;
         var name = 'Smash (' + smashQty + ' token' + (smashQty > 1 ? 's' : '') + ')';
         var existing = cart.find(function(c) { return c.item_type === 'smash'; });
         if (existing) {
             existing.quantity = smashQty;
-            existing.price = smashPrice;
-            existing.subtotal = smashPrice * smashQty;
+            existing.price = perToken;
             existing.token_count = smashQty;
             existing.name = name;
         } else {
-            cart.push({ product_id: null, name: name, price: smashPrice, quantity: smashQty, stock: 9999, area: activeArea, item_type: 'smash', token_count: smashQty });
+            cart.push({ product_id: null, name: name, price: perToken, quantity: smashQty, stock: 9999, area: activeArea, item_type: 'smash', token_count: smashQty });
         }
         render();
         Toast.success('Smash added');
@@ -589,16 +589,16 @@ function renderPOSTerminal() {
 
     window.__posAddExtra = function() {
         if (extraQty <= 0) { Toast.error('Enter quantity'); return; }
+        var perToken = extraQty > 0 ? extraPrice / extraQty : extraPrice;
         var name = 'Extra Token (' + extraQty + ' token' + (extraQty > 1 ? 's' : '') + ')';
         var existing = cart.find(function(c) { return c.item_type === 'extra'; });
         if (existing) {
             existing.quantity = extraQty;
-            existing.price = extraPrice;
-            existing.subtotal = extraPrice * extraQty;
+            existing.price = perToken;
             existing.token_count = extraQty;
             existing.name = name;
         } else {
-            cart.push({ product_id: null, name: name, price: extraPrice, quantity: extraQty, stock: 9999, area: activeArea, item_type: 'extra', token_count: extraQty });
+            cart.push({ product_id: null, name: name, price: perToken, quantity: extraQty, stock: 9999, area: activeArea, item_type: 'extra', token_count: extraQty });
         }
         render();
         Toast.success('Extra token added');

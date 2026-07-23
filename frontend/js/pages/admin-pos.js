@@ -172,11 +172,11 @@ function renderAdminPOS() {
 
     app.innerHTML = '<div class="layout">' + renderSidebar() +
       '<div class="main-content">' + renderNavbar('POS Terminal') +
-      '<div class="page-content" id="page-body" style="overflow:hidden;">' +
+      '<div class="page-content" id="page-body" style="overflow:auto;">' +
 
-      '<div style="display:grid;grid-template-columns:1fr 380px;gap:20px;height:calc(100vh - 120px);overflow:hidden;">' +
+      '<div style="display:flex;gap:20px;height:calc(100vh - 120px);overflow:hidden;">' +
 
-      '<div style="display:flex;flex-direction:column;gap:16px;min-height:0;overflow-y:auto;">' +
+      '<div style="flex:1;display:flex;flex-direction:column;gap:16px;min-height:0;overflow-y:auto;">' +
 
         '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">' +
           (isOwner ?
@@ -325,7 +325,7 @@ function renderAdminPOS() {
 
       '</div>' +
 
-      '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">' +
+      '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;display:flex;flex-direction:column;overflow:hidden;width:380px;flex-shrink:0;">' +
         '<div style="padding:16px 20px;border-bottom:1px solid #2a3040;display:flex;justify-content:space-between;align-items:center;">' +
           '<h3 style="color:#e2e8f0;margin:0;font-size:1rem;">Cart</h3>' +
           '<span style="color:#888;font-size:0.8rem;">' + cart.reduce(function(s, i) { return s + i.quantity; }, 0) + ' items</span>' +
@@ -542,15 +542,16 @@ function renderAdminPOS() {
   window.__posAddSmash = function() {
     if (smashQty <= 0) { Toast.error('Enter quantity'); return; }
     if (smashPrice <= 0) { Toast.error('Enter price'); return; }
+    var perToken = smashPrice / smashQty;
     var name = 'Smash (' + smashQty + ' token' + (smashQty > 1 ? 's' : '') + ')';
     var existing = cart.find(function(c) { return c.item_type === 'smash'; });
     if (existing) {
       existing.quantity = smashQty;
-      existing.price = smashPrice;
+      existing.price = perToken;
       existing.token_count = smashQty;
       existing.name = name;
     } else {
-      cart.push({ product_id: null, name: name, price: smashPrice, quantity: smashQty, stock: 9999, area: activeArea, item_type: 'smash', token_count: smashQty });
+      cart.push({ product_id: null, name: name, price: perToken, quantity: smashQty, stock: 9999, area: activeArea, item_type: 'smash', token_count: smashQty });
     }
     render();
     Toast.success('Smash added');
@@ -558,15 +559,16 @@ function renderAdminPOS() {
 
   window.__posAddExtra = function() {
     if (extraQty <= 0) { Toast.error('Enter quantity'); return; }
+    var perToken = extraQty > 0 ? extraPrice / extraQty : extraPrice;
     var name = 'Extra Token (' + extraQty + ' token' + (extraQty > 1 ? 's' : '') + ')';
     var existing = cart.find(function(c) { return c.item_type === 'extra'; });
     if (existing) {
       existing.quantity = extraQty;
-      existing.price = extraPrice;
+      existing.price = perToken;
       existing.token_count = extraQty;
       existing.name = name;
     } else {
-      cart.push({ product_id: null, name: name, price: extraPrice, quantity: extraQty, stock: 9999, area: activeArea, item_type: 'extra', token_count: extraQty });
+      cart.push({ product_id: null, name: name, price: perToken, quantity: extraQty, stock: 9999, area: activeArea, item_type: 'extra', token_count: extraQty });
     }
     render();
     Toast.success('Extra token added');
