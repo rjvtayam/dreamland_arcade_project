@@ -143,8 +143,8 @@ function renderPOSLogin() {
             });
             const user = await userResp.json();
 
-            if (user.role !== 'admin' && user.role !== 'owner') {
-                showError('POS access is restricted to Admin and Owner roles.');
+            if (user.role !== 'admin') {
+                showError('POS access is restricted to Admin role only.');
                 loginBtn.disabled = false;
                 loginBtn.textContent = 'OPEN POS';
                 pin = '';

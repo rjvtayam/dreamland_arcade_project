@@ -135,9 +135,11 @@ function renderPOSTerminal() {
                 '</a>' +
                 '<div style="width:1px;height:24px;background:#2a3040;"></div>' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
-                    '<span style="font-size:1.2rem;">🕹️</span>' +
+                    '<span style="font-size:1.2rem;">\ud83c\udfae</span>' +
                     '<span style="color:#22c55e;font-weight:700;font-size:0.85rem;letter-spacing:1px;">POS TERMINAL</span>' +
                 '</div>' +
+                '<button onclick="window.__posSubmitReport()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;font-size:0.75rem;font-weight:600;padding:6px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 15px rgba(99,102,241,0.4)\'" onmouseleave="this.style.boxShadow=\'none\'">Submit Report</button>' +
+            '</div>' +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:12px;">' +
                 '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:8px;padding:6px 14px;color:#22c55e;font-size:0.8rem;font-weight:600;">' + esc(posUser.branch_name || 'Branch') + '</div>' +
@@ -145,6 +147,7 @@ function renderPOSTerminal() {
                     '<div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#10b981);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.7rem;font-weight:700;">' + esc(initials) + '</div>' +
                     '<span style="color:#e2e8f0;font-size:0.8rem;">' + esc(posUser.first_name) + '</span>' +
                 '</div>' +
+                '<button onclick="window.__posTerminalLogout()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:0.8rem;padding:6px 12px;border:1px solid #30363d;border-radius:6px;transition:all 0.2s;" onmouseenter="this.style.color=\'#ef4444\';this.style.borderColor=\'#ef4444\'" onmouseleave="this.style.color=\'#94a3b8\';this.style.borderColor=\'#30363d\'">Logout</button>' +
             '</div>' +
         '</div>' +
 
@@ -340,6 +343,16 @@ function renderPOSTerminal() {
     };
 
     window.__posClearMember = function() { loyaltyMember = null; render(); };
+
+    window.__posSubmitReport = async function() {
+        if (!confirm('Submit daily sales report to owner?')) return;
+        try {
+            var result = await posApiPost('/pos-reports', {});
+            Toast.success('Report submitted! Sales: ' + formatCurrency(result.total_sales) + ' (' + result.total_transactions + ' transactions)');
+        } catch (err) {
+            Toast.error(err.message || 'Failed to submit report');
+        }
+    };
 
     window.__posTerminalLogout = function() {
         localStorage.removeItem('pos_token');
