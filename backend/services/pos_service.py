@@ -1,11 +1,14 @@
 from datetime import datetime, date, timedelta, timezone
 from typing import Optional, List
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy import func as sql_func
 from fastapi import HTTPException
+import json
 
 from models.product import Product
 from models.sale import Sale, SaleItem
+from models.tracking_sheet import TrackingSheet
 
 
 def create_product(db: Session, branch_id: int, name: str, category: str = None,
@@ -109,9 +112,146 @@ def create_sale(db: Session, branch_id: int, sold_by: int, items: List[dict], pa
         sale_item = SaleItem(sale_id=sale.id, **si)
         db.add(sale_item)
 
+    auto_update_tracking_sheet(db, sale, items, payment_method, area)
+
     db.commit()
     db.refresh(sale)
+
     return sale
+
+
+def auto_update_tracking_sheet(db: Session, sale: Sale, items: List[dict], payment_method: str, area: str):
+    today = date.today()
+    ts = db.query(TrackingSheet).filter(
+        TrackingSheet.branch_id == sale.branch_id,
+        TrackingSheet.area == area,
+        TrackingSheet.sheet_date == today
+    ).first()
+
+    if not ts:
+        ts = TrackingSheet(
+            branch_id=sale.branch_id,
+            area=area,
+            sheet_date=today,
+            status="draft",
+            created_by=sale.sold_by,
+            data={
+                "items": [
+                    {"qty": 0, "item": "10 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+                    {"qty": 0, "item": "20 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+                    {"qty": 0, "item": "50 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+                    {"qty": 0, "item": "100 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+                    {"qty": 0, "item": "150 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+                    {"qty": 0, "item": "250 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+                    {"qty": 0, "item": "", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+                    {"qty": 0, "item": "", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+                ],
+                "token_decode": {"10": 0, "20": 0, "50": 0, "100": 0, "150": 0, "250": 0},
+                "cash": {"expenses": 0, "recharge": 0, "cash_in": 0},
+                "smash": {"count": 0, "revenue": 0},
+                "extra": {"count": 0, "revenue": 0},
+                "payments": {"cash": 0, "gcash": 0, "other": 0}
+            }
+        )
+        db.add(ts)
+        db.flush()
+
+    data = ts.data or {}
+    if "items" not in data:
+        data["items"] = [
+            {"qty": 0, "item": "10 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+            {"qty": 0, "item": "20 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+            {"qty": 0, "item": "50 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+            {"qty": 0, "item": "100 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+            {"qty": 0, "item": "150 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+            {"qty": 0, "item": "250 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
+        ]
+    if "token_decode" not in data:
+        data["token_decode"] = {"10": 0, "20": 0, "50": 0, "100": 0, "150": 0, "250": 0}
+    if "cash" not in data:
+        data["cash"] = {"expenses": 0, "recharge": 0, "cash_in": 0}
+    if "smash" not in data:
+        data["smash"] = {"count": 0, "revenue": 0}
+    if "extra" not in data:
+        data["extra"] = {"count": 0, "revenue": 0}
+    if "payments" not in data:
+        data["payments"] = {"cash": 0, "gcash": 0, "other": 0}
+
+    sale_total = float(sale.total_amount or 0)
+    pm = (payment_method or "cash").lower()
+    if pm in ("gcash", "gcash"):
+        data["payments"]["gcash"] = data["payments"].get("gcash", 0) + sale_total
+    elif pm == "cash":
+        data["payments"]["cash"] = data["payments"].get("cash", 0) + sale_total
+    else:
+        data["payments"]["other"] = data["payments"].get("other", 0) + sale_total
+
+    token_decode = data["token_decode"]
+    items_list = data["items"]
+
+    for item_data in items:
+        item_type = item_data.get("item_type", "regular")
+        qty = item_data.get("quantity", 1)
+
+        if item_type == "smash":
+            tc = item_data.get("token_count", 0) * qty
+            cp = float(item_data.get("custom_price", 0) or 0)
+            data["smash"]["count"] = data["smash"].get("count", 0) + tc
+            data["smash"]["revenue"] = data["smash"].get("revenue", 0) + (cp * qty)
+
+        elif item_type == "extra":
+            tc = item_data.get("token_count", 0) * qty
+            cp = float(item_data.get("custom_price", 0) or 0)
+            data["extra"]["count"] = data["extra"].get("count", 0) + tc
+            data["extra"]["revenue"] = data["extra"].get("revenue", 0) + (cp * qty)
+
+        else:
+            product = db.query(Product).filter(Product.id == item_data.get("product_id")).first()
+            if not product:
+                continue
+
+            product_name = product.name or ""
+            product_price = float(product.price or 0)
+            amount = product_price * qty
+
+            matched = False
+            for row in items_list:
+                if row.get("item") == product_name:
+                    row["qty"] = row.get("qty", 0) + qty
+                    row["quantity"] = row.get("quantity", 0) + qty
+                    row["amount"] = row.get("amount", 0) + amount
+                    row["total_sales"] = row.get("total_sales", 0) + amount
+                    matched = True
+                    break
+
+            if not matched:
+                items_list.append({
+                    "qty": qty,
+                    "item": product_name,
+                    "cost": 0,
+                    "amount": amount,
+                    "quantity": qty,
+                    "share": 0,
+                    "total_sales": amount
+                })
+
+            if product.category == "Tokens":
+                token_num = 0
+                for part in product_name.split():
+                    try:
+                        token_num = int(part)
+                        break
+                    except ValueError:
+                        continue
+                if token_num > 0:
+                    key = str(token_num)
+                    token_decode[key] = token_decode.get(key, 0) + (token_num * qty)
+
+    ts.data = data
+    ts.total_sales = float(ts.total_sales or 0) + sale_total
+    ts.total_cash_on_hand = float(ts.total_cash_on_hand or 0) + sale_total
+    flag_modified(ts, "data")
+    db.commit()
 
 
 def get_sales(db: Session, branch_id: Optional[int] = None, start_date: Optional[date] = None, end_date: Optional[date] = None):

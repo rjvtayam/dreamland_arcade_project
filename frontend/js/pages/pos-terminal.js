@@ -115,13 +115,14 @@ function renderPOSTerminal() {
         var finalPrice = getEffectivePrice(product);
         var cust = productCustomizations[product.id] || {};
         var freeTokens = cust.freeTokens || 0;
+        var tokensPerItem = product.category === 'Tokens' ? (parseInt(product.name) || 0) : 0;
         var existing = cart.find(function(c) { return String(c.product_id) === String(productId); });
         if (existing) {
             if (existing.quantity >= (product.stock || 0)) { Toast.error('Not enough stock'); return; }
             existing.quantity++;
         } else {
             if ((product.stock || 0) <= 0) { Toast.error('Out of stock'); return; }
-            cart.push({ product_id: product.id, name: product.name, price: finalPrice, quantity: 1, stock: product.stock, area: activeArea, freeTokens: freeTokens });
+            cart.push({ product_id: product.id, name: product.name, price: finalPrice, quantity: 1, stock: product.stock, area: activeArea, freeTokens: freeTokens, tokens_per_item: tokensPerItem });
         }
         render();
     }
@@ -242,94 +243,42 @@ function renderPOSTerminal() {
                 '</div>' : '') +
 
             (function() {
-                if (!trackingSheet) {
+                if (cart.length === 0) {
                     return '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
-                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
-                            '<div style="color:#3b82f6;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Arcade Tracking Sheet</div>' +
-                            '<div style="color:#888;font-size:0.7rem;">' + new Date().toISOString().split('T')[0] + '</div>' +
-                        '</div>' +
-                        '<div style="color:#64748b;font-size:0.8rem;text-align:center;padding:12px 0;">No tracking sheet submitted yet</div>' +
+                        '<div style="color:#94a3b8;font-size:0.8rem;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Sales Breakdown</div>' +
+                        '<div style="color:#64748b;font-size:0.8rem;text-align:center;padding:12px 0;">Add items to see breakdown</div>' +
                     '</div>';
                 }
-                var d = trackingSheet.data || {};
-                var items = d.items || [];
-                var tokenDecode = d.token_decode || {};
-                var cash = d.cash || {};
-                var itemTotalSales = 0;
-                var itemTotalQty = 0;
-                var filledItems = items.filter(function(it) { return it.item && it.item.trim(); });
-
-                var itemRows = filledItems.map(function(it) {
-                    itemTotalSales += parseFloat(it.total_sales) || 0;
-                    itemTotalQty += parseInt(it.quantity) || 0;
+                var totalQty = 0;
+                var totalTokens = 0;
+                var totalAmount = 0;
+                var rows = cart.map(function(item) {
+                    totalQty += item.quantity;
+                    var itemTokens = item.item_type === 'smash' || item.item_type === 'extra' ? item.token_count : (item.tokens_per_item || 0) * item.quantity;
+                    var amount = item.price * item.quantity;
+                    totalTokens += itemTokens;
+                    totalAmount += amount;
+                    var typeTag = item.item_type === 'smash' ? '<span style="color:#f59e0b;font-size:0.55rem;font-weight:700;background:#f59e0b20;padding:1px 4px;border-radius:3px;">SMASH</span> ' : item.item_type === 'extra' ? '<span style="color:#ef4444;font-size:0.55rem;font-weight:700;background:#ef444420;padding:1px 4px;border-radius:3px;">EXTRA</span> ' : '';
                     return '<tr style="border-bottom:1px solid #1e2736;">' +
-                        '<td style="padding:4px 6px;color:#e2e8f0;font-size:0.75rem;">' + esc(it.item) + '</td>' +
-                        '<td style="padding:4px 6px;text-align:center;color:#f59e0b;font-size:0.75rem;">' + (it.qty || 0) + '</td>' +
-                        '<td style="padding:4px 6px;text-align:center;color:#6366f1;font-size:0.75rem;">' + (it.quantity || 0) + '</td>' +
-                        '<td style="padding:4px 6px;text-align:right;color:#22c55e;font-size:0.75rem;">' + formatCurrency(it.total_sales || 0) + '</td>' +
+                        '<td style="padding:3px 4px;color:#e2e8f0;font-size:0.7rem;">' + typeTag + esc(item.name || '') + '</td>' +
+                        '<td style="padding:3px 4px;text-align:center;color:#f59e0b;font-size:0.7rem;">' + item.quantity + '</td>' +
+                        '<td style="padding:3px 4px;text-align:center;color:#6366f1;font-size:0.7rem;">' + itemTokens + '</td>' +
+                        '<td style="padding:3px 4px;text-align:right;color:#22c55e;font-size:0.7rem;">' + formatCurrency(amount) + '</td>' +
                     '</tr>';
                 }).join('');
 
-                var tokenDenoms = [10, 20, 50, 100, 150, 250];
-                var tokenTotal = 0;
-                var tokenRows = tokenDenoms.map(function(k) {
-                    var val = parseInt(tokenDecode[k]) || 0;
-                    tokenTotal += val;
-                    return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1e2736;">' +
-                        '<span style="color:#94a3b8;font-size:0.7rem;">' + k + ' tok</span>' +
-                        '<span style="color:#e2e8f0;font-size:0.7rem;font-weight:600;">' + val + '</span>' +
-                    '</div>';
-                }).join('');
-
                 return '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
-                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-                        '<div style="color:#3b82f6;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Arcade Tracking Sheet</div>' +
-                        '<div style="color:#888;font-size:0.7rem;">' + esc(trackingSheet.sheet_date || '') + '</div>' +
-                    '</div>' +
-
-                    (filledItems.length > 0 ?
-                    '<div style="margin-bottom:12px;">' +
-                        '<table style="width:100%;border-collapse:collapse;font-size:0.75rem;">' +
-                        '<thead><tr style="border-bottom:1px solid #2a3040;">' +
-                            '<th style="padding:4px 6px;text-align:left;color:#f59e0b;font-size:0.65rem;">ITEM</th>' +
-                            '<th style="padding:4px 6px;text-align:center;color:#f59e0b;font-size:0.65rem;">QTY</th>' +
-                            '<th style="padding:4px 6px;text-align:center;color:#60a5fa;font-size:0.65rem;">SOLD</th>' +
-                            '<th style="padding:4px 6px;text-align:right;color:#f87171;font-size:0.65rem;">SALES</th>' +
-                        '</tr></thead><tbody>' + itemRows + '</tbody></table>' +
-                    '</div>' : '') +
-
-                    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
-                        '<div>' +
-                            '<div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:6px;">TOKEN DECODE</div>' +
-                            tokenRows +
-                            '<div style="display:flex;justify-content:space-between;padding:3px 0;margin-top:4px;border-top:1px solid #2a3040;">' +
-                                '<span style="color:#e2e8f0;font-size:0.7rem;font-weight:600;">TOTAL</span>' +
-                                '<span style="color:#f59e0b;font-size:0.7rem;font-weight:700;">' + tokenTotal + '</span>' +
-                            '</div>' +
-                        '</div>' +
-                        '<div>' +
-                            '<div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-bottom:6px;">CASH</div>' +
-                            '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1e2736;">' +
-                                '<span style="color:#94a3b8;font-size:0.7rem;">Expenses</span>' +
-                                '<span style="color:#ef4444;font-size:0.7rem;">' + formatCurrency(cash.expenses || 0) + '</span>' +
-                            '</div>' +
-                            '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1e2736;">' +
-                                '<span style="color:#94a3b8;font-size:0.7rem;">Recharge</span>' +
-                                '<span style="color:#22c55e;font-size:0.7rem;">' + formatCurrency(cash.recharge || 0) + '</span>' +
-                            '</div>' +
-                            '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1e2736;">' +
-                                '<span style="color:#94a3b8;font-size:0.7rem;">Cash In</span>' +
-                                '<span style="color:#6366f1;font-size:0.7rem;">' + formatCurrency(cash.cash_in || 0) + '</span>' +
-                            '</div>' +
-                            '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1e2736;">' +
-                                '<span style="color:#e2e8f0;font-size:0.7rem;font-weight:600;">Items Sold</span>' +
-                                '<span style="color:#e2e8f0;font-size:0.7rem;font-weight:600;">' + itemTotalQty + '</span>' +
-                            '</div>' +
-                            '<div style="display:flex;justify-content:space-between;padding:3px 0;">' +
-                                '<span style="color:#e2e8f0;font-size:0.7rem;font-weight:600;">Item Sales</span>' +
-                                '<span style="color:#22c55e;font-size:0.7rem;font-weight:600;">' + formatCurrency(itemTotalSales) + '</span>' +
-                            '</div>' +
-                        '</div>' +
+                    '<div style="color:#94a3b8;font-size:0.8rem;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Sales Breakdown</div>' +
+                    '<table style="width:100%;border-collapse:collapse;">' +
+                    '<thead><tr style="border-bottom:1px solid #2a3040;">' +
+                        '<th style="padding:3px 4px;text-align:left;color:#94a3b8;font-size:0.6rem;">ITEM</th>' +
+                        '<th style="padding:3px 4px;text-align:center;color:#f59e0b;font-size:0.6rem;">QTY</th>' +
+                        '<th style="padding:3px 4px;text-align:center;color:#6366f1;font-size:0.6rem;">TOKENS</th>' +
+                        '<th style="padding:3px 4px;text-align:right;color:#22c55e;font-size:0.6rem;">AMOUNT</th>' +
+                    '</tr></thead><tbody>' + rows + '</tbody></table>' +
+                    '<div style="display:flex;justify-content:space-between;padding:4px 0;border-top:1px solid #2a3040;margin-top:4px;">' +
+                        '<span style="color:#e2e8f0;font-size:0.75rem;font-weight:600;">Total (' + totalQty + ' items)</span>' +
+                        '<span style="color:#22c55e;font-size:0.75rem;font-weight:700;">' + formatCurrency(totalAmount) + '</span>' +
                     '</div>' +
                 '</div>';
             })() +
