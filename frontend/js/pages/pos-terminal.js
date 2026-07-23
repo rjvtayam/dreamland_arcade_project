@@ -242,7 +242,15 @@ function renderPOSTerminal() {
                 '</div>' : '') +
 
             (function() {
-                if (!trackingSheet) return '';
+                if (!trackingSheet) {
+                    return '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
+                            '<div style="color:#3b82f6;font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Arcade Tracking Sheet</div>' +
+                            '<div style="color:#888;font-size:0.7rem;">' + new Date().toISOString().split('T')[0] + '</div>' +
+                        '</div>' +
+                        '<div style="color:#64748b;font-size:0.8rem;text-align:center;padding:12px 0;">No tracking sheet submitted yet</div>' +
+                    '</div>';
+                }
                 var d = trackingSheet.data || {};
                 var items = d.items || [];
                 var tokenDecode = d.token_decode || {};
