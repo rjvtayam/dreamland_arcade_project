@@ -424,25 +424,6 @@
     color: var(--neon-cyan);
 }
 
-@media (max-width: 768px) {
-    .landing-title {
-        font-size: 2rem;
-        letter-spacing: 4px;
-    }
-    .landing-tagline {
-        font-size: 0.85rem;
-        letter-spacing: 3px;
-    }
-    .landing-features {
-        grid-template-columns: 1fr;
-        max-width: 400px;
-    }
-    .landing-nav {
-        padding: 1rem 1.5rem;
-    }
-    .landing-content {
-        padding-top: 5.5rem;
-    }
 .landing-pos-btn {
     display: inline-flex;
     align-items: center;
@@ -505,7 +486,26 @@
     color: #22c55e !important;
 }
 
-.landing-branches {
+@media (max-width: 768px) {
+    .landing-title {
+        font-size: 2rem;
+        letter-spacing: 4px;
+    }
+    .landing-tagline {
+        font-size: 0.85rem;
+        letter-spacing: 3px;
+    }
+    .landing-features {
+        grid-template-columns: 1fr;
+        max-width: 400px;
+    }
+    .landing-nav {
+        padding: 1rem 1.5rem;
+    }
+    .landing-content {
+        padding-top: 5.5rem;
+    }
+    .landing-branches {
         flex-direction: column;
         align-items: center;
         gap: 0.75rem;
