@@ -6,6 +6,7 @@ from schemas.auth import LoginRequest, TokenResponse, RefreshRequest
 from services.auth_service import authenticate_user, create_tokens, refresh_access_token
 from dependencies import get_current_user, require_role
 from models.user import User
+from models.branch import Branch
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -22,7 +23,11 @@ def refresh(request: RefreshRequest):
 
 
 @router.get("/me")
-def get_me(current_user: User = Depends(get_current_user)):
+def get_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    branch_name = None
+    if current_user.branch_id:
+        branch = db.query(Branch).filter(Branch.id == current_user.branch_id).first()
+        branch_name = branch.name if branch else None
     return {
         "id": current_user.id,
         "first_name": current_user.first_name,
@@ -30,5 +35,6 @@ def get_me(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "role": current_user.role,
         "branch_id": current_user.branch_id,
+        "branch_name": branch_name,
         "is_active": current_user.is_active
     }

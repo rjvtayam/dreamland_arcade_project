@@ -170,10 +170,6 @@ function renderPOSTerminal() {
 
         '<div style="background:#0d1117;border-bottom:1px solid #2a3040;padding:10px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
             '<div style="display:flex;align-items:center;gap:16px;">' +
-                '<a href="#landing" onclick="window.__posTerminalLogout()" style="color:#94a3b8;font-size:0.8rem;text-decoration:none;display:flex;align-items:center;gap:6px;transition:color 0.2s;" onmouseenter="this.style.color=\'#22c55e\'" onmouseleave="this.style.color=\'#94a3b8\'">' +
-                    '<span style="font-size:1.1rem;">&#8592;</span> Back' +
-                '</a>' +
-                '<div style="width:1px;height:24px;background:#2a3040;"></div>' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
                     '<span style="font-size:1.2rem;">\ud83c\udfae</span>' +
                     '<span style="color:#22c55e;font-weight:700;font-size:0.85rem;letter-spacing:1px;">POS TERMINAL</span>' +
@@ -181,7 +177,7 @@ function renderPOSTerminal() {
                 '<button onclick="window.__posSubmitReport()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;font-size:0.75rem;font-weight:600;padding:6px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 15px rgba(99,102,241,0.4)\'" onmouseleave="this.style.boxShadow=\'none\'">Submit Report</button>' +
             '</div>' +
             '<div style="display:flex;align-items:center;gap:12px;">' +
-                '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:8px;padding:6px 14px;color:#22c55e;font-size:0.8rem;font-weight:600;">' + esc(posUser.branch_name || 'Branch') + '</div>' +
+                '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:8px;padding:6px 14px;color:#22c55e;font-size:0.8rem;font-weight:600;">' + esc(posUser.branch_name || posUser.branch_id || 'Branch') + '</div>' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
                     '<div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#10b981);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.7rem;font-weight:700;">' + esc(initials) + '</div>' +
                     '<span style="color:#e2e8f0;font-size:0.8rem;">' + esc(posUser.first_name) + '</span>' +
@@ -454,6 +450,7 @@ function renderPOSTerminal() {
         localStorage.removeItem('pos_token');
         localStorage.removeItem('pos_refresh');
         localStorage.removeItem('pos_user');
+        Router.navigate('landing');
     };
 
     async function completeSale() {
