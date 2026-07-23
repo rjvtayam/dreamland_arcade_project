@@ -17,11 +17,12 @@ function renderPOSTerminal() {
     var activeArea = 'Arcade';
     var tracking = [];
     var loyaltyMember = null;
+    var productCustomizations = {};
 
     var AREAS = [
-        { id: 'Arcade', icon: '🎮', color: '#6366f1' },
-        { id: 'Playhouse', icon: '🏠', color: '#22c55e' },
-        { id: 'Cafe', icon: '☕', color: '#f59e0b' }
+        { id: 'Arcade', icon: '\ud83c\udfae', color: '#6366f1' },
+        { id: 'Playhouse', icon: '\ud83c\udfe0', color: '#22c55e' },
+        { id: 'Cafe', icon: '\u2615', color: '#f59e0b' }
     ];
 
     function posApiHeaders() {
@@ -81,17 +82,26 @@ function renderPOSTerminal() {
         return t || { total_sales: 0, total_transactions: 0 };
     }
 
+    function getEffectivePrice(product) {
+        var cust = productCustomizations[product.id] || {};
+        var baseDiscount = product.discount || 0;
+        var extraDiscount = cust.discount || 0;
+        return product.price - baseDiscount - extraDiscount;
+    }
+
     function addToCart(productId) {
         var product = products.find(function(p) { return String(p.id) === String(productId); });
         if (!product) return;
-        var finalPrice = product.price - (product.discount || 0);
+        var finalPrice = getEffectivePrice(product);
+        var cust = productCustomizations[product.id] || {};
+        var freeTokens = cust.freeTokens || 0;
         var existing = cart.find(function(c) { return String(c.product_id) === String(productId); });
         if (existing) {
             if (existing.quantity >= (product.stock || 0)) { Toast.error('Not enough stock'); return; }
             existing.quantity++;
         } else {
             if ((product.stock || 0) <= 0) { Toast.error('Out of stock'); return; }
-            cart.push({ product_id: product.id, name: product.name, price: finalPrice, quantity: 1, stock: product.stock, area: activeArea });
+            cart.push({ product_id: product.id, name: product.name, price: finalPrice, quantity: 1, stock: product.stock, area: activeArea, freeTokens: freeTokens });
         }
         render();
     }
@@ -124,6 +134,36 @@ function renderPOSTerminal() {
 
         var tokens = filteredProducts.filter(function(p) { return p.category === 'Tokens'; });
         var others = filteredProducts.filter(function(p) { return p.category !== 'Tokens'; });
+
+        function renderProductCard(p) {
+            var stock = p.stock || 0;
+            var isOut = stock <= 0;
+            var cust = productCustomizations[p.id] || {};
+            var effectivePrice = getEffectivePrice(p);
+            var baseDiscount = p.discount || 0;
+            var extraDiscount = cust.discount || 0;
+            var totalDiscount = baseDiscount + extraDiscount;
+            var hasDiscount = totalDiscount > 0;
+            var hasFreeTokens = cust.freeTokens > 0;
+            var catColor = p.category === 'Tokens' ? '#6366f1' : p.category === 'Drinks' ? '#3b82f6' : p.category === 'Snacks' ? '#f59e0b' : '#a855f7';
+
+            return '<div style="position:relative;background:#0d1117;border:1px solid ' + (isOut ? '#3a1a1a' : '#2a3040') + ';border-radius:10px;padding:14px;cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';opacity:' + (isOut ? '0.5' : '1') + ';transition:all 0.15s;">' +
+                '<button onclick="event.stopPropagation();window.__posEditProduct(\'' + p.id + '\')" style="position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:6px;border:1px solid #30363d;background:#161b22;color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.65rem;transition:all 0.15s;z-index:1;" onmouseenter="this.style.borderColor=\'#6366f1\';this.style.color=\'#6366f1\'" onmouseleave="this.style.borderColor=\'#30363d\';this.style.color=\'#94a3b8\'">&#9998;</button>' +
+                (p.category !== 'Tokens' ? '<div style="color:' + catColor + ';font-size:0.65rem;font-weight:600;margin-bottom:4px;">' + esc(p.category || '') + '</div>' : '') +
+                '<div onclick="window.__posAdd(\'' + p.id + '\')" style="cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';">' +
+                    '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;margin-bottom:6px;padding-right:28px;">' + esc(p.name || '') + '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;">' +
+                        (hasDiscount ? '<span style="color:#666;font-size:0.8rem;text-decoration:line-through;">' + formatCurrency(p.price) + '</span>' : '') +
+                        '<span style="color:' + (hasDiscount ? '#22c55e' : catColor) + ';font-weight:700;font-size:1rem;">' + formatCurrency(effectivePrice) + '</span>' +
+                    '</div>' +
+                    (hasFreeTokens ? '<div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-top:4px;">+' + cust.freeTokens + ' FREE TOKENS</div>' : '') +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
+                        '<span style="color:' + (isOut ? '#ef4444' : '#22c55e') + ';font-size:0.7rem;font-weight:600;">' + (isOut ? 'SOLD OUT' : 'Stock: ' + stock) + '</span>' +
+                        (isOut ? '' : '<span style="color:#888;font-size:0.65rem;">+ add</span>') +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }
 
         app.innerHTML =
         '<div style="display:flex;flex-direction:column;height:100vh;background:#0a0e1a;">' +
@@ -179,25 +219,9 @@ function renderPOSTerminal() {
 
             (tokens.length > 0 ?
                 '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
-                    '<div style="color:#94a3b8;font-size:0.8rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Token Repacks (₱5/token)</div>' +
+                    '<div style="color:#94a3b8;font-size:0.8rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Token Repacks</div>' +
                     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">' +
-                    tokens.map(function(p) {
-                        var stock = p.stock || 0;
-                        var isOut = stock <= 0;
-                        var finalPrice = p.price - (p.discount || 0);
-                        var hasDiscount = p.discount > 0;
-                        return '<div onclick="window.__posAdd(\'' + p.id + '\')" style="background:#0d1117;border:1px solid ' + (isOut ? '#3a1a1a' : '#2a3040') + ';border-radius:10px;padding:14px;cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';opacity:' + (isOut ? '0.5' : '1') + ';transition:all 0.15s;">' +
-                            '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;margin-bottom:6px;">' + esc(p.name || '') + '</div>' +
-                            '<div style="display:flex;align-items:center;gap:8px;">' +
-                                (hasDiscount ? '<span style="color:#666;font-size:0.8rem;text-decoration:line-through;">' + formatCurrency(p.price) + '</span>' : '') +
-                                '<span style="color:' + (hasDiscount ? '#22c55e' : '#6366f1') + ';font-weight:700;font-size:1rem;">' + formatCurrency(finalPrice) + '</span>' +
-                            '</div>' +
-                            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
-                                '<span style="color:' + (isOut ? '#ef4444' : '#22c55e') + ';font-size:0.7rem;font-weight:600;">' + (isOut ? 'SOLD OUT' : 'Stock: ' + stock) + '</span>' +
-                                (isOut ? '' : '<span style="color:#888;font-size:0.65rem;">+ add</span>') +
-                            '</div>' +
-                        '</div>';
-                    }).join('') +
+                    tokens.map(renderProductCard).join('') +
                     '</div>' +
                 '</div>' : '') +
 
@@ -205,25 +229,7 @@ function renderPOSTerminal() {
                 '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;flex:1;">' +
                     '<div style="color:#94a3b8;font-size:0.8rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Other Items</div>' +
                     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">' +
-                    others.map(function(p) {
-                        var stock = p.stock || 0;
-                        var isOut = stock <= 0;
-                        var catColor = p.category === 'Drinks' ? '#3b82f6' : p.category === 'Snacks' ? '#f59e0b' : '#a855f7';
-                        var finalPrice = p.price - (p.discount || 0);
-                        var hasDiscount = p.discount > 0;
-                        return '<div onclick="window.__posAdd(\'' + p.id + '\')" style="background:#0d1117;border:1px solid ' + (isOut ? '#3a1a1a' : '#2a3040') + ';border-radius:10px;padding:14px;cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';opacity:' + (isOut ? '0.5' : '1') + ';transition:all 0.15s;">' +
-                            '<div style="color:' + catColor + ';font-size:0.65rem;font-weight:600;margin-bottom:4px;">' + esc(p.category || '') + '</div>' +
-                            '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;margin-bottom:6px;">' + esc(p.name || '') + '</div>' +
-                            '<div style="display:flex;align-items:center;gap:8px;">' +
-                                (hasDiscount ? '<span style="color:#666;font-size:0.8rem;text-decoration:line-through;">' + formatCurrency(p.price) + '</span>' : '') +
-                                '<span style="color:' + (hasDiscount ? '#22c55e' : '#e2e8f0') + ';font-weight:700;font-size:1rem;">' + formatCurrency(finalPrice) + '</span>' +
-                            '</div>' +
-                            '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
-                                '<span style="color:' + (isOut ? '#ef4444' : '#22c55e') + ';font-size:0.7rem;font-weight:600;">' + (isOut ? 'SOLD OUT' : 'Stock: ' + stock) + '</span>' +
-                                (isOut ? '' : '<span style="color:#888;font-size:0.65rem;">+ add</span>') +
-                            '</div>' +
-                        '</div>';
-                    }).join('') +
+                    others.map(renderProductCard).join('') +
                     '</div>' +
                 '</div>' : '') +
 
@@ -260,6 +266,7 @@ function renderPOSTerminal() {
                             '<div style="display:flex;gap:8px;align-items:center;">' +
                                 '<span style="color:' + areaColor + ';font-size:0.65rem;font-weight:600;">' + (item.area || 'Arcade') + '</span>' +
                                 '<span style="color:#6366f1;font-size:0.8rem;">' + formatCurrency(item.price) + '</span>' +
+                                (item.freeTokens > 0 ? '<span style="color:#f59e0b;font-size:0.65rem;font-weight:600;">+' + item.freeTokens + ' free</span>' : '') +
                             '</div>' +
                         '</div>' +
                         '<div style="display:flex;align-items:center;gap:6px;">' +
@@ -317,6 +324,96 @@ function renderPOSTerminal() {
             saleBtn.addEventListener('click', completeSale);
         }
     }
+
+    function renderEditModal(productId) {
+        var product = products.find(function(p) { return String(p.id) === String(productId); });
+        if (!product) return;
+        var cust = productCustomizations[product.id] || {};
+        var isToken = product.category === 'Tokens';
+
+        var modal = document.createElement('div');
+        modal.id = 'pos-edit-modal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+        modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+
+        var html = '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:16px;padding:24px;width:360px;max-width:90vw;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">' +
+                '<div>' +
+                    '<div style="color:#e2e8f0;font-weight:700;font-size:1rem;">' + esc(product.name) + '</div>' +
+                    '<div style="color:#888;font-size:0.75rem;margin-top:2px;">Base price: ' + formatCurrency(product.price) + '</div>' +
+                '</div>' +
+                '<button onclick="document.getElementById(\'pos-edit-modal\').remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;">&times;</button>' +
+            '</div>' +
+
+            '<div style="margin-bottom:16px;">' +
+                '<label style="color:#94a3b8;font-size:0.75rem;font-weight:600;display:block;margin-bottom:6px;">DISCOUNT (\u20b1 OFF)</label>' +
+                '<input type="number" id="edit-discount" min="0" step="1" value="' + (cust.discount || 0) + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:0.9rem;box-sizing:border-box;">' +
+            '</div>' +
+
+            (isToken ?
+            '<div style="margin-bottom:16px;">' +
+                '<label style="color:#94a3b8;font-size:0.75rem;font-weight:600;display:block;margin-bottom:6px;">FREE TOKENS (BONUS)</label>' +
+                '<input type="number" id="edit-free-tokens" min="0" step="1" value="' + (cust.freeTokens || 0) + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:0.9rem;box-sizing:border-box;">' +
+            '</div>' : '') +
+
+            '<div style="background:#0d1117;border-radius:8px;padding:10px 12px;margin-bottom:16px;">' +
+                '<div style="color:#888;font-size:0.7rem;margin-bottom:4px;">Final Price</div>' +
+                '<div id="edit-preview-price" style="color:#22c55e;font-weight:700;font-size:1.2rem;">' + formatCurrency(getEffectivePrice(product)) + '</div>' +
+            '</div>' +
+
+            '<div style="display:flex;gap:8px;">' +
+                '<button onclick="window.__posEditClear(\'' + productId + '\')" style="flex:1;padding:10px;border:1px solid #30363d;border-radius:8px;background:#0d1117;color:#94a3b8;font-size:0.85rem;cursor:pointer;">Clear</button>' +
+                '<button onclick="window.__posEditSave(\'' + productId + '\')" style="flex:2;padding:10px;border:none;border-radius:8px;background:#22c55e;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Save</button>' +
+            '</div>' +
+        '</div>';
+
+        modal.innerHTML = html;
+        document.body.appendChild(modal);
+
+        var discountInput = document.getElementById('edit-discount');
+        var freeInput = document.getElementById('edit-free-tokens');
+        var previewPrice = document.getElementById('edit-preview-price');
+
+        function updatePreview() {
+            var d = parseInt(discountInput.value) || 0;
+            var f = parseInt(freeInput ? freeInput.value : 0) || 0;
+            var finalPrice = product.price - (product.discount || 0) - d;
+            if (finalPrice < 0) finalPrice = 0;
+            previewPrice.textContent = formatCurrency(finalPrice);
+            if (d > 0 || f > 0) {
+                previewPrice.style.color = '#22c55e';
+            } else {
+                previewPrice.style.color = '#e2e8f0';
+            }
+        }
+
+        if (discountInput) discountInput.addEventListener('input', updatePreview);
+        if (freeInput) freeInput.addEventListener('input', updatePreview);
+    }
+
+    window.__posEditProduct = function(id) { renderEditModal(id); };
+
+    window.__posEditSave = function(id) {
+        var discountInput = document.getElementById('edit-discount');
+        var freeInput = document.getElementById('edit-free-tokens');
+        var discount = parseInt(discountInput ? discountInput.value : 0) || 0;
+        var freeTokens = parseInt(freeInput ? freeInput.value : 0) || 0;
+        if (discount < 0) discount = 0;
+        if (freeTokens < 0) freeTokens = 0;
+        productCustomizations[id] = { discount: discount, freeTokens: freeTokens };
+        var modal = document.getElementById('pos-edit-modal');
+        if (modal) modal.remove();
+        Toast.success('Product updated');
+        render();
+    };
+
+    window.__posEditClear = function(id) {
+        delete productCustomizations[id];
+        var modal = document.getElementById('pos-edit-modal');
+        if (modal) modal.remove();
+        Toast.success('Customization cleared');
+        render();
+    };
 
     window.__posAdd = function(id) { addToCart(id); };
     window.__posQty = function(id, delta) { updateCartQuantity(id, delta); };
