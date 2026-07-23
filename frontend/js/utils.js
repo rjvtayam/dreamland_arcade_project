@@ -66,7 +66,10 @@ function debounce(fn, delay = 300) {
 }
 
 function confirmAsync(message, title) {
+    if (typeof document === 'undefined') return Promise.resolve(confirm(message));
     return new Promise(function(resolve) {
+        var existing = document.getElementById('custom-confirm-modal');
+        if (existing) existing.remove();
         var modal = document.createElement('div');
         modal.id = 'custom-confirm-modal';
         modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;';

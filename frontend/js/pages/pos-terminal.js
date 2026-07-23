@@ -404,8 +404,8 @@ function renderPOSTerminal() {
         }
 
         var saleBtn = document.getElementById('complete-sale-btn');
-        if (saleBtn && cart.length > 0) {
-            saleBtn.addEventListener('click', completeSale);
+        if (saleBtn) {
+            saleBtn.addEventListener('click', function() { completeSale(); });
         }
 
         var smashQtyInput = document.getElementById('smash-qty');
