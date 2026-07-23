@@ -172,11 +172,11 @@ function renderAdminPOS() {
 
     app.innerHTML = '<div class="layout">' + renderSidebar() +
       '<div class="main-content">' + renderNavbar('POS Terminal') +
-      '<div class="page-content" id="page-body">' +
+      '<div class="page-content" id="page-body" style="overflow:hidden;">' +
 
-      '<div style="display:grid;grid-template-columns:1fr 380px;gap:20px;height:calc(100vh - 120px);">' +
+      '<div style="display:grid;grid-template-columns:1fr 380px;gap:20px;height:calc(100vh - 120px);overflow:hidden;">' +
 
-      '<div style="display:flex;flex-direction:column;gap:16px;min-height:0;">' +
+      '<div style="display:flex;flex-direction:column;gap:16px;min-height:0;overflow-y:auto;">' +
 
         '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">' +
           (isOwner ?

@@ -206,9 +206,9 @@ function renderPOSTerminal() {
             '</div>' +
         '</div>' +
 
-        '<div style="flex:1;display:grid;grid-template-columns:1fr 380px;gap:0;overflow:hidden;">' +
+        '<div style="flex:1;display:grid;grid-template-columns:1fr 380px;gap:0;overflow:hidden;min-height:0;">' +
 
-        '<div style="display:flex;flex-direction:column;gap:12px;padding:16px 20px;overflow-y:auto;">' +
+        '<div style="display:flex;flex-direction:column;gap:12px;padding:16px 20px;overflow-y:auto;min-height:0;">' +
 
             '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
                 '<input type="text" id="pos-search" placeholder="Search products..." style="flex:1;min-width:200px;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:0.85rem;" value="' + esc(searchQuery) + '">' +
