@@ -220,7 +220,7 @@ function renderAdminSchedules() {
   }
 
   async function doReshuffle() {
-    if (!confirm('Reshuffle all staff schedules for the selected week? This will replace all current schedules.')) return;
+    if (!await confirmAsync('Reshuffle all staff schedules for the selected week? This will replace all current schedules.')) return;
     try {
       var user = Auth.getUser();
       var branchId = user.branch_id || 2;
@@ -299,7 +299,7 @@ function renderAdminSchedules() {
     });
 
     document.getElementById('delete-sched-btn')?.addEventListener('click', async () => {
-      if (!confirm('Delete this schedule?')) return;
+      if (!await confirmAsync('Delete this schedule?')) return;
       try {
         await apiDelete('/schedules/' + schedule.id);
         Toast.success('Schedule deleted');

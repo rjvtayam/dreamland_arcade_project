@@ -178,7 +178,7 @@ function renderAdminProducts() {
     const product = products.find(p => String(p.id) === String(id));
     if (!product) return;
     const newActive = product.is_active === false ? true : false;
-    if (!confirm(newActive ? 'Activate this product?' : 'Deactivate this product?')) return;
+    if (!await confirmAsync(newActive ? 'Activate this product?' : 'Deactivate this product?')) return;
     try {
       await apiPut('/products/' + id, { is_active: newActive });
       Toast.success('Product ' + (newActive ? 'activated' : 'deactivated'));

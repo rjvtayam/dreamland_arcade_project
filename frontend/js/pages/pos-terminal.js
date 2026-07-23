@@ -36,13 +36,13 @@ function renderPOSTerminal() {
 
     async function posApiGet(path) {
         var resp = await fetch(API_BASE + path, { headers: posApiHeaders() });
-        if (!resp.ok) { var e = await resp.json().catch(function() { return {}; }); throw new Error(e.detail || 'Request failed'); }
+        if (!resp.ok) { var e = await resp.json().catch(function() { return {}; }); var msg = typeof e.detail === 'string' ? e.detail : (Array.isArray(e.detail) ? e.detail.map(function(d){return d.msg||d;}).join(', ') : 'Request failed'); throw new Error(msg); }
         return resp.json();
     }
 
     async function posApiPost(path, body) {
         var resp = await fetch(API_BASE + path, { method: 'POST', headers: posApiHeaders(), body: JSON.stringify(body) });
-        if (!resp.ok) { var e = await resp.json().catch(function() { return {}; }); throw new Error(e.detail || 'Request failed'); }
+        if (!resp.ok) { var e = await resp.json().catch(function() { return {}; }); var msg = typeof e.detail === 'string' ? e.detail : (Array.isArray(e.detail) ? e.detail.map(function(d){return d.msg||d;}).join(', ') : 'Request failed'); throw new Error(msg); }
         return resp.json();
     }
 
@@ -625,7 +625,7 @@ function renderPOSTerminal() {
     window.__posClearMember = function() { loyaltyMember = null; render(); };
 
     window.__posSubmitReport = async function() {
-        if (!confirm('Submit daily sales report to owner?')) return;
+        if (!await confirmAsync('Submit daily sales report to owner?', 'Submit Report')) return;
         try {
             var result = await posApiPost('/pos-reports', {});
             Toast.success('Report submitted! Sales: ' + formatCurrency(result.total_sales) + ' (' + result.total_transactions + ' transactions)');
@@ -644,7 +644,7 @@ function renderPOSTerminal() {
     async function completeSale() {
         if (cart.length === 0) { Toast.error('Cart is empty'); return; }
         var total = getCartTotal();
-        if (!confirm('Complete sale for ' + formatCurrency(total) + '?')) return;
+        if (!await confirmAsync('Complete sale for ' + formatCurrency(total) + '?', 'Complete Sale')) return;
 
         var areaTotals = {};
         cart.forEach(function(item) {

@@ -298,7 +298,7 @@ function renderAdminInventory() {
   }
 
   async function deleteItem(id) {
-    if (!confirm('Are you sure you want to delete this item?')) return;
+        if (!await confirmAsync('Are you sure you want to delete this item?')) return;
     try {
       await apiDelete('/inventory/' + id);
       Toast.success('Item deleted');

@@ -241,7 +241,7 @@ function renderAdminTracking() {
   }
 
   async function submitSheet(sheet) {
-    if (!confirm('Submit this tracking sheet? It will be locked from further edits.')) return;
+    if (!await confirmAsync('Submit this tracking sheet? It will be locked from further edits.')) return;
     try {
       await apiPost('/tracking-sheets/' + sheet.id + '/submit', {});
       Toast.success('Sheet submitted!');

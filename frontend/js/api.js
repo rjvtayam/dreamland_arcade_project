@@ -35,7 +35,14 @@ async function apiRequest(endpoint, options = {}) {
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const message = errorData.detail || errorData.message || `Request failed with status ${response.status}`;
+        let message;
+        if (typeof errorData.detail === 'string') {
+            message = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
+            message = errorData.detail.map(d => d.msg || (typeof d === 'string' ? d : 'Unknown error')).join(', ');
+        } else {
+            message = errorData.message || `Request failed with status ${response.status}`;
+        }
         throw new Error(message);
     }
 

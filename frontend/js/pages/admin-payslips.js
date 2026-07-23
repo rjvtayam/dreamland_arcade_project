@@ -121,7 +121,7 @@ function renderAdminPayslips() {
       if (p) showEditModal(p);
     };
     window.__approvePayslip = async function(id) {
-      if (!confirm('Approve this payslip?')) return;
+      if (!await confirmAsync('Approve this payslip?')) return;
       try { await apiPut('/payslips/' + id + '/approve', {}); Toast.success('Payslip approved!'); loadData(); } catch (err) { Toast.error(err.message); }
     };
   }

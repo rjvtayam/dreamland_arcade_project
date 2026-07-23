@@ -64,3 +64,28 @@ function debounce(fn, delay = 300) {
         timer = setTimeout(() => fn.apply(this, args), delay);
     };
 }
+
+function confirmAsync(message, title) {
+    return new Promise(function(resolve) {
+        var modal = document.createElement('div');
+        modal.id = 'custom-confirm-modal';
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;';
+
+        var html = '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:16px;padding:28px;width:380px;max-width:90vw;text-align:center;">' +
+            '<div style="font-size:1.5rem;margin-bottom:8px;">\ud83d\udca1</div>' +
+            (title ? '<div style="color:#e2e8f0;font-weight:700;font-size:1rem;margin-bottom:8px;">' + title + '</div>' : '') +
+            '<div style="color:#94a3b8;font-size:0.9rem;margin-bottom:24px;line-height:1.5;">' + message + '</div>' +
+            '<div style="display:flex;gap:10px;justify-content:center;">' +
+                '<button id="confirm-no" style="flex:1;padding:10px;border:1px solid #30363d;border-radius:8px;background:#0d1117;color:#94a3b8;font-size:0.9rem;font-weight:600;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.borderColor=\'#ef4444\';this.style.color=\'#ef4444\'" onmouseleave="this.style.borderColor=\'#30363d\';this.style.color=\'#94a3b8\'">Cancel</button>' +
+                '<button id="confirm-yes" style="flex:1;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,#22c55e,#10b981);color:#fff;font-size:0.9rem;font-weight:600;cursor:pointer;transition:all 0.15s;" onmouseenter="this.style.boxShadow=\'0 0 20px rgba(34,197,94,0.3)\'" onmouseleave="this.style.boxShadow=\'none\'">Confirm</button>' +
+            '</div>' +
+        '</div>';
+
+        modal.innerHTML = html;
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', function(e) { if (e.target === modal) { modal.remove(); resolve(false); } });
+        document.getElementById('confirm-no').addEventListener('click', function() { modal.remove(); resolve(false); });
+        document.getElementById('confirm-yes').addEventListener('click', function() { modal.remove(); resolve(true); });
+    });
+}

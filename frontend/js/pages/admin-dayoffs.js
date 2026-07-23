@@ -100,7 +100,7 @@ function renderAdminDayoffs() {
   }
 
   async function updateStatus(id, status) {
-    if (!confirm('Are you sure you want to ' + status + ' this request?')) return;
+      if (!await confirmAsync('Are you sure you want to ' + status + ' this request?')) return;
     try {
       await apiPut('/dayoffs/' + id + '/status', { status: status });
       Toast.success('Request ' + status);

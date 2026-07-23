@@ -597,7 +597,7 @@ function renderAdminPOS() {
   async function completeSale() {
     if (cart.length === 0) { Toast.error('Cart is empty'); return; }
     var total = getCartTotal();
-    if (!confirm('Complete sale for ' + formatCurrency(total) + '?')) return;
+    if (!await confirmAsync('Complete sale for ' + formatCurrency(total) + '?', 'Complete Sale')) return;
 
     var areaTotals = {};
     cart.forEach(function(item) {

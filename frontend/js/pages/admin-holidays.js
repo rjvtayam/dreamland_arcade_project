@@ -178,7 +178,7 @@ function renderAdminEvents() {
 
     setTimeout(function() {
       window.__editH = function(id) { var h = holidays.find(function(x) { return String(x.id) === String(id); }); if (h) openHolidayModal(h); };
-      window.__delH = async function(id) { if (!confirm('Delete this holiday?')) return; try { await apiDelete('/holidays/' + id); Toast.success('Deleted'); loadData(); } catch (err) { Toast.error(err.message); } };
+      window.__delH = async function(id) { if (!await confirmAsync('Delete this holiday?')) return; try { await apiDelete('/holidays/' + id); Toast.success('Deleted'); loadData(); } catch (err) { Toast.error(err.message); } };
       var addBtn = document.getElementById('add-holiday-btn');
       if (addBtn) addBtn.addEventListener('click', function() { openHolidayModal(null); });
     }, 10);
@@ -249,7 +249,7 @@ function renderAdminEvents() {
         if (ev) openSpecialEventModal(ev);
       };
       window.__delSE = async function(id) {
-        if (!confirm('Delete this custom event?')) return;
+        if (!await confirmAsync('Delete this custom event?')) return;
         try { await apiDelete('/special-events/' + id); Toast.success('Deleted'); loadData(); } catch (err) { Toast.error(err.message); }
       };
       var addBtn = document.getElementById('add-event-btn');

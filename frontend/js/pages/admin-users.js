@@ -113,7 +113,7 @@ function renderEmpList(employees) {
         if (u) showEmpModal(u);
     };
     window.__toggleEmp = async function(id, isActive) {
-        if (!confirm(isActive ? 'Deactivate this employee?' : 'Activate this employee?')) return;
+        if (!await confirmAsync(isActive ? 'Deactivate this employee?' : 'Activate this employee?')) return;
         try {
             await apiPut('/users/' + id, { is_active: !isActive });
             Toast.success(isActive ? 'Employee deactivated' : 'Employee activated');
