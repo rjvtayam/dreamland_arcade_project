@@ -37,12 +37,7 @@ function renderPOSLogin() {
             <div class="login-orb login-orb-2"></div>
             <div class="login-container">
                 <div class="login-card pos-login-card">
-                <div style="position:absolute;top:16px;left:16px;z-index:2;">
-                    <a href="#landing" style="color:#94a3b8;font-size:0.8rem;text-decoration:none;display:flex;align-items:center;gap:6px;transition:color 0.2s;" onmouseenter="this.style.color='#22c55e'" onmouseleave="this.style.color='#94a3b8'">
-                        <span style="font-size:1.1rem;">&#8592;</span> Back
-                    </a>
-                </div>
-                <div class="login-logo" style="margin-top:16px;">
+                <div class="login-logo">
                     <svg class="login-logo-icon" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.5">
                         <path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
