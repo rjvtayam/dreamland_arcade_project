@@ -36,8 +36,11 @@ class ProductResponse(ProductBase):
 
 
 class SaleItemCreate(BaseModel):
-    product_id: int
+    product_id: Optional[int] = None
     quantity: int
+    item_type: str = "regular"
+    custom_price: Optional[float] = None
+    token_count: Optional[int] = 0
 
 
 class SaleCreate(BaseModel):
