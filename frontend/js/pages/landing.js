@@ -27,7 +27,7 @@ function renderLanding() {
                 '<div class="landing-nav-title">DREAMLAND</div>' +
             '</div>' +
             '<div style="display:flex;gap:10px;align-items:center;">' +
-                '<button class="landing-nav-pos" onclick="Router.navigate(\'pos-login\')">POS</button>' +
+                '<button class="landing-nav-pos" style="padding:8px 24px;background:transparent;border:1px solid #22c55e;border-radius:8px;color:#22c55e;font-family:var(--font-display);font-size:0.75rem;font-weight:600;letter-spacing:2px;cursor:pointer;transition:all 250ms ease;" onclick="Router.navigate(\'pos-login\')">POS</button>' +
                 '<button class="landing-nav-enter" onclick="Router.navigate(\'login\')">ENTER</button>' +
             '</div>' +
         '</nav>' +
@@ -73,7 +73,7 @@ function renderLanding() {
                     'ENTER ARCADE' +
                     '<span class="landing-enter-arrow">\u2192</span>' +
                 '</button>' +
-                '<button class="landing-pos-btn" onclick="Router.navigate(\'pos-login\')">' +
+                '<button class="landing-pos-btn" style="display:inline-flex;align-items:center;gap:10px;padding:16px 40px;background:transparent;border:1px solid #22c55e;border-radius:12px;color:#22c55e;font-family:var(--font-display);font-size:1rem;font-weight:700;letter-spacing:4px;text-transform:uppercase;cursor:pointer;transition:all 250ms ease;position:relative;overflow:hidden;" onclick="Router.navigate(\'pos-login\')">' +
                     '<span style="font-size:1.1rem;">\u25B6</span>' +
                     'POS TERMINAL' +
                 '</button>' +
