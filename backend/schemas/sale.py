@@ -9,6 +9,7 @@ class ProductBase(BaseModel):
     category: Optional[str] = None
     price: float
     stock: int = 0
+    discount: float = 0
 
 
 class ProductCreate(ProductBase):
@@ -20,6 +21,7 @@ class ProductUpdate(BaseModel):
     category: Optional[str] = None
     price: Optional[float] = None
     stock: Optional[int] = None
+    discount: Optional[float] = None
     is_active: Optional[bool] = None
 
 

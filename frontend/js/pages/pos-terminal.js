@@ -84,13 +84,14 @@ function renderPOSTerminal() {
     function addToCart(productId) {
         var product = products.find(function(p) { return String(p.id) === String(productId); });
         if (!product) return;
+        var finalPrice = product.price - (product.discount || 0);
         var existing = cart.find(function(c) { return String(c.product_id) === String(productId); });
         if (existing) {
             if (existing.quantity >= (product.stock || 0)) { Toast.error('Not enough stock'); return; }
             existing.quantity++;
         } else {
             if ((product.stock || 0) <= 0) { Toast.error('Out of stock'); return; }
-            cart.push({ product_id: product.id, name: product.name, price: product.price, quantity: 1, stock: product.stock, area: activeArea });
+            cart.push({ product_id: product.id, name: product.name, price: finalPrice, quantity: 1, stock: product.stock, area: activeArea });
         }
         render();
     }
@@ -181,9 +182,14 @@ function renderPOSTerminal() {
                     tokens.map(function(p) {
                         var stock = p.stock || 0;
                         var isOut = stock <= 0;
+                        var finalPrice = p.price - (p.discount || 0);
+                        var hasDiscount = p.discount > 0;
                         return '<div onclick="window.__posAdd(\'' + p.id + '\')" style="background:#0d1117;border:1px solid ' + (isOut ? '#3a1a1a' : '#2a3040') + ';border-radius:10px;padding:14px;cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';opacity:' + (isOut ? '0.5' : '1') + ';transition:all 0.15s;">' +
                             '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;margin-bottom:6px;">' + esc(p.name || '') + '</div>' +
-                            '<div style="color:#6366f1;font-weight:700;font-size:1rem;">' + formatCurrency(p.price) + '</div>' +
+                            '<div style="display:flex;align-items:center;gap:8px;">' +
+                                (hasDiscount ? '<span style="color:#666;font-size:0.8rem;text-decoration:line-through;">' + formatCurrency(p.price) + '</span>' : '') +
+                                '<span style="color:' + (hasDiscount ? '#22c55e' : '#6366f1') + ';font-weight:700;font-size:1rem;">' + formatCurrency(finalPrice) + '</span>' +
+                            '</div>' +
                             '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
                                 '<span style="color:' + (isOut ? '#ef4444' : '#22c55e') + ';font-size:0.7rem;font-weight:600;">' + (isOut ? 'SOLD OUT' : 'Stock: ' + stock) + '</span>' +
                                 (isOut ? '' : '<span style="color:#888;font-size:0.65rem;">+ add</span>') +
@@ -201,10 +207,15 @@ function renderPOSTerminal() {
                         var stock = p.stock || 0;
                         var isOut = stock <= 0;
                         var catColor = p.category === 'Drinks' ? '#3b82f6' : p.category === 'Snacks' ? '#f59e0b' : '#a855f7';
+                        var finalPrice = p.price - (p.discount || 0);
+                        var hasDiscount = p.discount > 0;
                         return '<div onclick="window.__posAdd(\'' + p.id + '\')" style="background:#0d1117;border:1px solid ' + (isOut ? '#3a1a1a' : '#2a3040') + ';border-radius:10px;padding:14px;cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';opacity:' + (isOut ? '0.5' : '1') + ';transition:all 0.15s;">' +
                             '<div style="color:' + catColor + ';font-size:0.65rem;font-weight:600;margin-bottom:4px;">' + esc(p.category || '') + '</div>' +
                             '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;margin-bottom:6px;">' + esc(p.name || '') + '</div>' +
-                            '<div style="color:#e2e8f0;font-weight:700;font-size:1rem;">' + formatCurrency(p.price) + '</div>' +
+                            '<div style="display:flex;align-items:center;gap:8px;">' +
+                                (hasDiscount ? '<span style="color:#666;font-size:0.8rem;text-decoration:line-through;">' + formatCurrency(p.price) + '</span>' : '') +
+                                '<span style="color:' + (hasDiscount ? '#22c55e' : '#e2e8f0') + ';font-weight:700;font-size:1rem;">' + formatCurrency(finalPrice) + '</span>' +
+                            '</div>' +
                             '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
                                 '<span style="color:' + (isOut ? '#ef4444' : '#22c55e') + ';font-size:0.7rem;font-weight:600;">' + (isOut ? 'SOLD OUT' : 'Stock: ' + stock) + '</span>' +
                                 (isOut ? '' : '<span style="color:#888;font-size:0.65rem;">+ add</span>') +

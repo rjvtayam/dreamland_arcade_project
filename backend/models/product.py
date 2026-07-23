@@ -13,6 +13,7 @@ class Product(Base):
     category = Column(String(100))
     price = Column(Numeric(10, 2), nullable=False)
     stock = Column(Integer, default=0)
+    discount = Column(Numeric(5, 2), default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

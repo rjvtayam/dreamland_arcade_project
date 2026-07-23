@@ -51,22 +51,27 @@ function renderAdminProducts() {
       '<div class="table-container">' +
       '<table class="data-table">' +
       '<thead><tr>' +
-      '<th>Name</th><th>Category</th><th>Branch</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th>' +
+      '<th>Name</th><th>Category</th><th>Branch</th><th>Price</th><th>Discount</th><th>Final</th><th>Stock</th><th>Status</th><th>Actions</th>' +
       '</tr></thead>' +
       '<tbody>' +
-      (filtered.length === 0 ? '<tr><td colspan="7" class="no-data">No products found</td></tr>' :
-        filtered.map(p => '<tr>' +
+      (filtered.length === 0 ? '<tr><td colspan="9" class="no-data">No products found</td></tr>' :
+        filtered.map(p => {
+          var finalPrice = p.price - (p.discount || 0);
+          return '<tr>' +
           '<td>' + escapeHtml(p.name || '-') + '</td>' +
           '<td><span class="badge badge-info">' + escapeHtml(p.category || '-') + '</span></td>' +
           '<td>' + escapeHtml(p.branch_name || '-') + '</td>' +
           '<td>' + formatCurrency(p.price) + '</td>' +
+          '<td>' + (p.discount > 0 ? '<span style="color:#f59e0b;">-' + formatCurrency(p.discount) + '</span>' : '<span style="color:#666;">-</span>') + '</td>' +
+          '<td style="font-weight:600;color:#22c55e;">' + formatCurrency(finalPrice) + '</td>' +
           '<td class="' + (p.stock <= 0 ? 'text-danger' : '') + '">' + escapeHtml(String(p.stock ?? 0)) + '</td>' +
           '<td>' + (p.is_active !== false ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-secondary">Inactive</span>') + '</td>' +
           '<td class="actions-cell">' +
           '<button class="btn btn-sm btn-secondary edit-product-btn" data-id="' + p.id + '">Edit</button> ' +
           '<button class="btn btn-sm btn-' + (p.is_active !== false ? 'warning' : 'success') + ' toggle-product-btn" data-id="' + p.id + '">' +
           (p.is_active !== false ? 'Deactivate' : 'Activate') + '</button>' +
-          '</td></tr>').join('')) +
+          '</td></tr>';
+        }).join('')) +
       '</tbody></table>' +
       '</div></div></div></div>';
 
@@ -126,6 +131,10 @@ function renderAdminProducts() {
       '<input type="number" name="price" class="form-control" value="' + (isEdit ? (product.price ?? '') : '') + '" min="0" step="0.01" required>' +
       '</div>' +
       '<div class="form-group">' +
+      '<label>Discount</label>' +
+      '<input type="number" name="discount" class="form-control" value="' + (isEdit ? (product.discount ?? 0) : '0') + '" min="0" step="0.01">' +
+      '</div>' +
+      '<div class="form-group">' +
       '<label>Stock</label>' +
       '<input type="number" name="stock" class="form-control" value="' + (isEdit ? (product.stock ?? 0) : '0') + '" min="0" required>' +
       '</div>' +
@@ -146,6 +155,7 @@ function renderAdminProducts() {
         name: form.name.value,
         category: form.category.value,
         price: parseFloat(form.price.value),
+        discount: parseFloat(form.discount.value) || 0,
         stock: parseInt(form.stock.value) || 0
       };
       try {

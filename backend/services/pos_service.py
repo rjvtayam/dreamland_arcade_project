@@ -9,13 +9,14 @@ from models.sale import Sale, SaleItem
 
 
 def create_product(db: Session, branch_id: int, name: str, category: str = None,
-                   price: float = 0, stock: int = 0) -> Product:
+                   price: float = 0, stock: int = 0, discount: float = 0) -> Product:
     product = Product(
         branch_id=branch_id,
         name=name,
         category=category,
         price=price,
-        stock=stock
+        stock=stock,
+        discount=discount
     )
     db.add(product)
     db.commit()

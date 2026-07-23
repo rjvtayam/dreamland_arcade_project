@@ -35,6 +35,7 @@ def list_products(
             "category": p.category,
             "price": float(p.price),
             "stock": p.stock,
+            "discount": float(p.discount) if p.discount else 0,
             "is_active": p.is_active,
             "created_at": p.created_at.isoformat() if p.created_at else None
         })
@@ -51,7 +52,7 @@ def create_product(
         raise HTTPException(status_code=403, detail="Admins can only create products for their own branch")
 
     product = pos_service.create_product(
-        db, data.branch_id, data.name, data.category, data.price, data.stock
+        db, data.branch_id, data.name, data.category, data.price, data.stock, discount=data.discount
     )
     return {"id": product.id, "detail": "Product created"}
 
