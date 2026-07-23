@@ -140,7 +140,6 @@ function renderPOSTerminal() {
                 '</div>' +
                 '<button onclick="window.__posSubmitReport()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;font-size:0.75rem;font-weight:600;padding:6px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 15px rgba(99,102,241,0.4)\'" onmouseleave="this.style.boxShadow=\'none\'">Submit Report</button>' +
             '</div>' +
-            '</div>' +
             '<div style="display:flex;align-items:center;gap:12px;">' +
                 '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:8px;padding:6px 14px;color:#22c55e;font-size:0.8rem;font-weight:600;">' + esc(posUser.branch_name || 'Branch') + '</div>' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
