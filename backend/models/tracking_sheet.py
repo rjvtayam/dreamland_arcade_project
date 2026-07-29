@@ -22,6 +22,8 @@ class TrackingSheet(Base):
     remarks_over = Column(Text, nullable=True)
     data = Column(JSONB, default={})
     status = Column(String(20), default="draft")
+    is_deleted = Column(Integer, default=0)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -35,7 +37,7 @@ class TrackingSheetItem(Base):
     __tablename__ = "tracking_sheet_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    tracking_sheet_id = Column(Integer, ForeignKey("tracking_sheets.id", on_delete="CASCADE"), nullable=False)
+    tracking_sheet_id = Column(Integer, ForeignKey("tracking_sheets.id", ondelete="CASCADE"), nullable=False)
     item_description = Column(String(200), nullable=False)
     opening = Column(Integer, default=0)
     additional_pcs = Column(Integer, default=0)

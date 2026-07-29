@@ -70,7 +70,8 @@ async function renderAdminBranches() {
                 const id = btn.dataset.id;
                 const isActive = btn.dataset.active === 'true';
                 const action = isActive ? 'deactivate' : 'activate';
-                const confirmed = await Modal.confirm(`Confirm ${action}`, `Are you sure you want to ${action} this branch?`);
+                const type = isActive ? 'warning' : 'success';
+                const confirmed = await ConfirmDialog.show({ type, title: `Confirm ${action}`, message: `Are you sure you want to ${action} this branch?`, confirmText: action.charAt(0).toUpperCase() + action.slice(1) });
                 if (confirmed) {
                     try {
                         await apiPut(`/branches/${id}`, { is_active: !isActive });

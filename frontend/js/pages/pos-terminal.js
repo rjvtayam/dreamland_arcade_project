@@ -23,6 +23,13 @@ function renderPOSTerminal() {
     var smashPrice = 0;
     var extraQty = 0;
     var extraPrice = 0;
+    var showHistory = false;
+    var historySales = [];
+    var historyLoading = false;
+    var historySort = 'date-desc';
+    var historyDateFrom = '';
+    var historyDateTo = '';
+    var historyViewAll = false;
 
     var AREAS = [
         { id: 'Arcade', icon: '\ud83c\udfae', color: '#6366f1' },
@@ -97,6 +104,30 @@ function renderPOSTerminal() {
         }
     }
 
+    async function loadHistory() {
+        historyLoading = true;
+        render();
+        try {
+            var url = '/sales/my';
+            if (!historyViewAll) {
+                var today = new Date().toISOString().split('T')[0];
+                url += '?start_date=' + today + '&end_date=' + today;
+            } else if (historyDateFrom || historyDateTo) {
+                var params = [];
+                if (historyDateFrom) params.push('start_date=' + historyDateFrom);
+                if (historyDateTo) params.push('end_date=' + historyDateTo);
+                url += '?' + params.join('&');
+            }
+            historySales = await posApiGet(url);
+            if (!Array.isArray(historySales)) historySales = [];
+        } catch (e) {
+            historySales = [];
+            Toast.error('Failed to load history');
+        }
+        historyLoading = false;
+        render();
+    }
+
     function getAreaTracking(area) {
         var t = tracking.find(function(t) { return t.area === area; });
         return t || { total_sales: 0, total_transactions: 0 };
@@ -143,78 +174,54 @@ function renderPOSTerminal() {
 
     function getCartTotal() { return cart.reduce(function(sum, item) { return sum + (item.price * item.quantity); }, 0); }
 
-    function render() {
-        var total = getCartTotal();
-        var initials = posUser ? (posUser.first_name || '').charAt(0) + (posUser.last_name || '').charAt(0) : '??';
+    function esc(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
 
+    function renderProductCard(p) {
+        var stock = p.stock || 0;
+        var isOut = stock <= 0;
+        var cust = productCustomizations[p.id] || {};
+        var effectivePrice = getEffectivePrice(p);
+        var baseDiscount = p.discount || 0;
+        var extraDiscount = cust.discount || 0;
+        var totalDiscount = baseDiscount + extraDiscount;
+        var hasDiscount = totalDiscount > 0;
+        var hasFreeTokens = cust.freeTokens > 0;
+        var catColor = p.category === 'Tokens' ? '#6366f1' : p.category === 'Drinks' ? '#3b82f6' : p.category === 'Snacks' ? '#f59e0b' : '#a855f7';
+
+        return '<div style="position:relative;background:#0d1117;border:1px solid ' + (isOut ? '#3a1a1a' : '#2a3040') + ';border-radius:10px;padding:14px;cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';opacity:' + (isOut ? '0.5' : '1') + ';transition:all 0.15s;">' +
+            '<button onclick="event.stopPropagation();window.__posEditProduct(\'' + p.id + '\')" style="position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:6px;border:1px solid #30363d;background:#161b22;color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.65rem;transition:all 0.15s;z-index:1;" onmouseenter="this.style.borderColor=\'#6366f1\';this.style.color=\'#6366f1\'" onmouseleave="this.style.borderColor=\'#30363d\';this.style.color=\'#94a3b8\'">&#9998;</button>' +
+            (p.category !== 'Tokens' ? '<div style="color:' + catColor + ';font-size:0.65rem;font-weight:600;margin-bottom:4px;">' + esc(p.category || '') + '</div>' : '') +
+            '<div onclick="window.__posAdd(\'' + p.id + '\')" style="cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';">' +
+                '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;margin-bottom:6px;padding-right:28px;">' + esc(p.name || '') + '</div>' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                    (hasDiscount ? '<span style="color:#666;font-size:0.8rem;text-decoration:line-through;">' + formatCurrency(p.price) + '</span>' : '') +
+                    '<span style="color:' + (hasDiscount ? '#22c55e' : catColor) + ';font-weight:700;font-size:1rem;">' + formatCurrency(effectivePrice) + '</span>' +
+                '</div>' +
+                (hasFreeTokens ? '<div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-top:4px;">+' + cust.freeTokens + ' FREE TOKENS</div>' : '') +
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
+                    '<span style="color:' + (isOut ? '#ef4444' : '#22c55e') + ';font-size:0.7rem;font-weight:600;">' + (isOut ? 'SOLD OUT' : 'Stock: ' + stock) + '</span>' +
+                    (isOut ? '' : '<span style="color:#888;font-size:0.65rem;">+ add</span>') +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function renderPOSView() {
         var filteredProducts = products;
         if (searchQuery) {
             var q = searchQuery.toLowerCase();
             filteredProducts = products.filter(function(p) { return (p.name || '').toLowerCase().indexOf(q) >= 0; });
         }
-
         var tokens = filteredProducts.filter(function(p) { return p.category === 'Tokens'; });
         var others = filteredProducts.filter(function(p) { return p.category !== 'Tokens'; });
 
-        function renderProductCard(p) {
-            var stock = p.stock || 0;
-            var isOut = stock <= 0;
-            var cust = productCustomizations[p.id] || {};
-            var effectivePrice = getEffectivePrice(p);
-            var baseDiscount = p.discount || 0;
-            var extraDiscount = cust.discount || 0;
-            var totalDiscount = baseDiscount + extraDiscount;
-            var hasDiscount = totalDiscount > 0;
-            var hasFreeTokens = cust.freeTokens > 0;
-            var catColor = p.category === 'Tokens' ? '#6366f1' : p.category === 'Drinks' ? '#3b82f6' : p.category === 'Snacks' ? '#f59e0b' : '#a855f7';
-
-            return '<div style="position:relative;background:#0d1117;border:1px solid ' + (isOut ? '#3a1a1a' : '#2a3040') + ';border-radius:10px;padding:14px;cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';opacity:' + (isOut ? '0.5' : '1') + ';transition:all 0.15s;">' +
-                '<button onclick="event.stopPropagation();window.__posEditProduct(\'' + p.id + '\')" style="position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:6px;border:1px solid #30363d;background:#161b22;color:#94a3b8;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.65rem;transition:all 0.15s;z-index:1;" onmouseenter="this.style.borderColor=\'#6366f1\';this.style.color=\'#6366f1\'" onmouseleave="this.style.borderColor=\'#30363d\';this.style.color=\'#94a3b8\'">&#9998;</button>' +
-                (p.category !== 'Tokens' ? '<div style="color:' + catColor + ';font-size:0.65rem;font-weight:600;margin-bottom:4px;">' + esc(p.category || '') + '</div>' : '') +
-                '<div onclick="window.__posAdd(\'' + p.id + '\')" style="cursor:' + (isOut ? 'not-allowed' : 'pointer') + ';">' +
-                    '<div style="color:#e2e8f0;font-weight:600;font-size:0.85rem;margin-bottom:6px;padding-right:28px;">' + esc(p.name || '') + '</div>' +
-                    '<div style="display:flex;align-items:center;gap:8px;">' +
-                        (hasDiscount ? '<span style="color:#666;font-size:0.8rem;text-decoration:line-through;">' + formatCurrency(p.price) + '</span>' : '') +
-                        '<span style="color:' + (hasDiscount ? '#22c55e' : catColor) + ';font-weight:700;font-size:1rem;">' + formatCurrency(effectivePrice) + '</span>' +
-                    '</div>' +
-                    (hasFreeTokens ? '<div style="color:#f59e0b;font-size:0.7rem;font-weight:600;margin-top:4px;">+' + cust.freeTokens + ' FREE TOKENS</div>' : '') +
-                    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">' +
-                        '<span style="color:' + (isOut ? '#ef4444' : '#22c55e') + ';font-size:0.7rem;font-weight:600;">' + (isOut ? 'SOLD OUT' : 'Stock: ' + stock) + '</span>' +
-                        (isOut ? '' : '<span style="color:#888;font-size:0.65rem;">+ add</span>') +
-                    '</div>' +
-                '</div>' +
-            '</div>';
-        }
-
-        app.innerHTML =
-        '<div style="display:flex;flex-direction:column;height:100vh;background:#0a0e1a;">' +
-
-        '<div style="background:#0d1117;border-bottom:1px solid #2a3040;padding:10px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
-            '<div style="display:flex;align-items:center;gap:16px;">' +
-                '<div style="display:flex;align-items:center;gap:8px;">' +
-                    '<span style="font-size:1.2rem;">\ud83c\udfae</span>' +
-                    '<span style="color:#22c55e;font-weight:700;font-size:0.85rem;letter-spacing:1px;">POS TERMINAL</span>' +
-                '</div>' +
-                '<button onclick="window.__posSubmitReport()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;font-size:0.75rem;font-weight:600;padding:6px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 15px rgba(99,102,241,0.4)\'" onmouseleave="this.style.boxShadow=\'none\'">Submit Report</button>' +
-            '</div>' +
-            '<div style="display:flex;align-items:center;gap:12px;">' +
-                '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:8px;padding:6px 14px;color:#22c55e;font-size:0.8rem;font-weight:600;">' + esc(posUser.branch_name || posUser.branch_id || 'Branch') + '</div>' +
-                '<div style="display:flex;align-items:center;gap:8px;">' +
-                    '<div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#10b981);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.7rem;font-weight:700;">' + esc(initials) + '</div>' +
-                    '<span style="color:#e2e8f0;font-size:0.8rem;">' + esc(posUser.first_name) + '</span>' +
-                '</div>' +
-                '<button onclick="window.__posTerminalLogout()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:0.8rem;padding:6px 12px;border:1px solid #30363d;border-radius:6px;transition:all 0.2s;" onmouseenter="this.style.color=\'#ef4444\';this.style.borderColor=\'#ef4444\'" onmouseleave="this.style.color=\'#94a3b8\';this.style.borderColor=\'#30363d\'">Logout</button>' +
-            '</div>' +
-        '</div>' +
-
-        '<div style="flex:1;display:flex;overflow:hidden;min-height:0;">' +
-
-        '<div style="flex:1;display:flex;flex-direction:column;gap:12px;padding:16px 20px;overflow-y:auto;min-height:0;">' +
-
+        return '<div style="flex:1;display:flex;flex-direction:column;gap:12px;padding:16px 20px;overflow-y:auto;min-height:0;">' +
             '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">' +
                 '<input type="text" id="pos-search" placeholder="Search products..." style="flex:1;min-width:200px;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:8px 12px;color:#e2e8f0;font-size:0.85rem;" value="' + esc(searchQuery) + '">' +
             '</div>' +
-
             '<div style="display:flex;gap:8px;">' +
                 AREAS.map(function(a) {
                     var isActive = activeArea === a.id;
@@ -233,7 +240,6 @@ function renderPOSTerminal() {
                     '</div>';
                 }).join('') +
             '</div>' +
-
             (tokens.length > 0 ?
                 '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
                     '<div style="color:#94a3b8;font-size:0.8rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Token Repacks</div>' +
@@ -241,7 +247,6 @@ function renderPOSTerminal() {
                     tokens.map(renderProductCard).join('') +
                     '</div>' +
                 '</div>' : '') +
-
             (function() {
                 if (cart.length === 0) {
                     return '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
@@ -266,7 +271,6 @@ function renderPOSTerminal() {
                         '<td style="padding:3px 4px;text-align:right;color:#22c55e;font-size:0.7rem;">' + formatCurrency(amount) + '</td>' +
                     '</tr>';
                 }).join('');
-
                 return '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
                     '<div style="color:#94a3b8;font-size:0.8rem;font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">Sales Breakdown</div>' +
                     '<table style="width:100%;border-collapse:collapse;">' +
@@ -282,20 +286,13 @@ function renderPOSTerminal() {
                     '</div>' +
                 '</div>';
             })() +
-
             '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
                 '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:12px;padding:16px;">' +
                     '<div style="color:#f59e0b;font-size:0.8rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">SMASH (Single Tokens)</div>' +
                     '<div style="color:#94a3b8;font-size:0.7rem;margin-bottom:10px;">For buying 1-2 tokens at a time</div>' +
                     '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
-                        '<div style="flex:1;">' +
-                            '<label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">Qty</label>' +
-                            '<input type="number" id="smash-qty" min="0" value="' + smashQty + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;">' +
-                        '</div>' +
-                        '<div style="flex:1;">' +
-                            '<label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">\u20b1 Price</label>' +
-                            '<input type="number" id="smash-price" min="0" value="' + smashPrice + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;">' +
-                        '</div>' +
+                        '<div style="flex:1;"><label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">Qty</label><input type="number" id="smash-qty" min="0" value="' + smashQty + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;"></div>' +
+                        '<div style="flex:1;"><label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">\u20b1 Price</label><input type="number" id="smash-price" min="0" value="' + smashPrice + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;"></div>' +
                     '</div>' +
                     '<button onclick="window.__posAddSmash()" style="width:100%;padding:8px;border:none;border-radius:6px;background:#f59e0b;color:#000;font-size:0.8rem;font-weight:600;cursor:pointer;">+ Add Smash</button>' +
                 '</div>' +
@@ -303,27 +300,18 @@ function renderPOSTerminal() {
                     '<div style="color:#ef4444;font-size:0.8rem;font-weight:600;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">EXTRA TOKEN (Service)</div>' +
                     '<div style="color:#94a3b8;font-size:0.7rem;margin-bottom:10px;">For tracking borrowed/lent tokens</div>' +
                     '<div style="display:flex;gap:8px;margin-bottom:8px;">' +
-                        '<div style="flex:1;">' +
-                            '<label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">Qty</label>' +
-                            '<input type="number" id="extra-qty" min="0" value="' + extraQty + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;">' +
-                        '</div>' +
-                        '<div style="flex:1;">' +
-                            '<label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">\u20b1 Price</label>' +
-                            '<input type="number" id="extra-price" min="0" value="' + extraPrice + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;">' +
-                        '</div>' +
+                        '<div style="flex:1;"><label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">Qty</label><input type="number" id="extra-qty" min="0" value="' + extraQty + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;"></div>' +
+                        '<div style="flex:1;"><label style="color:#888;font-size:0.65rem;display:block;margin-bottom:4px;">\u20b1 Price</label><input type="number" id="extra-price" min="0" value="' + extraPrice + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;font-size:0.85rem;box-sizing:border-box;"></div>' +
                     '</div>' +
                     '<button onclick="window.__posAddExtra()" style="width:100%;padding:8px;border:none;border-radius:6px;background:#ef4444;color:#fff;font-size:0.8rem;font-weight:600;cursor:pointer;">+ Add Extra</button>' +
                 '</div>' +
             '</div>' +
-
         '</div>' +
-
         '<div style="background:#0d1117;border-left:1px solid #2a3040;display:flex;flex-direction:column;overflow:hidden;width:380px;flex-shrink:0;">' +
             '<div style="padding:16px 20px;border-bottom:1px solid #2a3040;display:flex;justify-content:space-between;align-items:center;">' +
                 '<h3 style="color:#e2e8f0;margin:0;font-size:1rem;">Cart</h3>' +
                 '<span style="color:#888;font-size:0.8rem;">' + cart.reduce(function(s, i) { return s + i.quantity; }, 0) + ' items</span>' +
             '</div>' +
-
             '<div style="padding:12px 16px;border-bottom:1px solid #2a3040;">' +
                 (loyaltyMember ?
                     '<div style="display:flex;justify-content:space-between;align-items:center;background:#161b22;border:1px solid #6366f1;border-radius:8px;padding:10px;">' +
@@ -337,7 +325,6 @@ function renderPOSTerminal() {
                     '</div>'
                 ) +
             '</div>' +
-
             '<div style="flex:1;overflow-y:auto;padding:12px;">' +
             (cart.length === 0 ? '<div style="text-align:center;padding:40px 0;color:#666;">Cart is empty</div>' :
                 cart.map(function(item, idx) {
@@ -365,11 +352,10 @@ function renderPOSTerminal() {
                     '</div>';
                 }).join('')) +
             '</div>' +
-
             '<div style="border-top:1px solid #2a3040;padding:16px 20px;">' +
                 '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
                     '<span style="color:#94a3b8;font-size:0.9rem;">Total</span>' +
-                    '<span style="color:#e2e8f0;font-size:1.3rem;font-weight:700;">' + formatCurrency(total) + '</span>' +
+                    '<span style="color:#e2e8f0;font-size:1.3rem;font-weight:700;">' + formatCurrency(getCartTotal()) + '</span>' +
                 '</div>' +
                 '<div style="margin-bottom:12px;">' +
                     '<select id="payment-method" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:8px;color:#e2e8f0;font-size:0.85rem;">' +
@@ -380,14 +366,232 @@ function renderPOSTerminal() {
                 '</div>' +
                 '<button id="complete-sale-btn" style="width:100%;padding:12px;border:none;border-radius:8px;background:' + (cart.length === 0 ? '#374151' : '#22c55e') + ';color:#fff;font-size:1rem;font-weight:600;cursor:' + (cart.length === 0 ? 'not-allowed' : 'pointer') + ';"' + (cart.length === 0 ? ' disabled' : '') + '>Complete Sale</button>' +
             '</div>' +
-        '</div>' +
+        '</div>';
+    }
 
+    function renderHistoryView() {
+        if (historyLoading) {
+            return '<div style="flex:1;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:0.9rem;">Loading transactions...</div>';
+        }
+
+        var sorted = historySales.slice();
+        if (historyDateFrom) {
+            var from = new Date(historyDateFrom);
+            from.setHours(0,0,0,0);
+            sorted = sorted.filter(function(s) { return new Date(s.created_at) >= from; });
+        }
+        if (historyDateTo) {
+            var to = new Date(historyDateTo);
+            to.setHours(23,59,59,999);
+            sorted = sorted.filter(function(s) { return new Date(s.created_at) <= to; });
+        }
+        if (historySort === 'date-desc') sorted.sort(function(a,b) { return new Date(b.created_at) - new Date(a.created_at); });
+        else if (historySort === 'date-asc') sorted.sort(function(a,b) { return new Date(a.created_at) - new Date(b.created_at); });
+        else if (historySort === 'amount-desc') sorted.sort(function(a,b) { return b.total_amount - a.total_amount; });
+        else if (historySort === 'amount-asc') sorted.sort(function(a,b) { return a.total_amount - b.total_amount; });
+        else if (historySort === 'txn-asc') sorted.sort(function(a,b) { return a.id - b.id; });
+        else if (historySort === 'txn-desc') sorted.sort(function(a,b) { return b.id - a.id; });
+
+        var total = historySales.reduce(function(a, s) { return a + s.total_amount; }, 0);
+        var cashTotal = historySales.filter(function(s) { return s.payment_method === 'Cash'; }).reduce(function(a, s) { return a + s.total_amount; }, 0);
+        var gcashTotal = historySales.filter(function(s) { return s.payment_method === 'GCash'; }).reduce(function(a, s) { return a + s.total_amount; }, 0);
+
+        var receiptsHtml = '';
+        if (sorted.length === 0) {
+            receiptsHtml = '<div style="text-align:center;padding:60px 20px;color:#666;"><div style="font-size:2rem;margin-bottom:8px;">\ud83d\udccb</div><div>No transactions found</div></div>';
+        } else {
+            receiptsHtml = '<div style="display:flex;flex-wrap:wrap;gap:20px;justify-content:center;padding:20px 0;">' +
+            sorted.map(function(sale) {
+                var txId = String(sale.id).padStart(6, '0');
+                var dt = sale.created_at ? new Date(sale.created_at) : new Date();
+                var dateStr = dt.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: '2-digit' });
+                var timeStr = dt.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit', hour12: true });
+                var dayStr = dt.toLocaleDateString('en-PH', { weekday: 'long' });
+                var payColor = sale.payment_method === 'GCash' ? '#3b82f6' : '#22c55e';
+
+                var itemLines = (sale.items || []).map(function(item) {
+                    var typeTag = item.item_type === 'smash' ? ' [SMASH]'
+                        : item.item_type === 'extra' ? ' [EXTRA]' : '';
+                    var fallbackName = item.item_type === 'smash' ? 'Smash Token'
+                        : item.item_type === 'extra' ? 'Extra Token' : 'Unknown';
+                    var itemName = (item.product_name || fallbackName) + typeTag;
+                    if (itemName.length > 22) itemName = itemName.substring(0, 20) + '..';
+                    var qtyStr = 'x' + item.quantity;
+                    var amtStr = formatCurrency(item.subtotal);
+                    var dots = '';
+                    var dotCount = 38 - itemName.length - qtyStr.length - amtStr.length;
+                    for (var d = 0; d < dotCount; d++) dots += '.';
+                    return '<div style="font-family:\'Courier New\',monospace;font-size:0.75rem;color:#1a1a2e;display:flex;justify-content:space-between;">' +
+                        '<span>' + esc(itemName) + ' ' + qtyStr + '</span>' +
+                        '<span>' + amtStr + '</span>' +
+                    '</div>';
+                }).join('');
+
+                var cashierName = (sale.seller_name || 'N/A').split(' ');
+                var cashierDisplay = cashierName.length > 1 ? cashierName[0] + ' ' + cashierName[cashierName.length - 1] : sale.seller_name || 'N/A';
+
+                return '<div style="width:320px;background:#f5f0e8;border-radius:4px;padding:0;box-shadow:0 8px 32px rgba(0,0,0,0.4);position:relative;overflow:hidden;flex-shrink:0;">' +
+                    '<div style="background:#f5f0e8;padding:20px 24px 12px;text-align:center;">' +
+                        '<div style="font-size:1.3rem;margin-bottom:2px;">\ud83c\udfae</div>' +
+                        '<div style="font-family:\'Courier New\',monospace;font-weight:900;font-size:1.1rem;color:#1a1a2e;letter-spacing:3px;">DREAMLAND</div>' +
+                        '<div style="font-family:\'Courier New\',monospace;font-weight:700;font-size:0.7rem;color:#555;letter-spacing:4px;margin-top:2px;">ARCADE</div>' +
+                        '<div style="font-family:\'Courier New\',monospace;font-size:0.65rem;color:#777;margin-top:6px;">' + esc(sale.branch_name || 'Branch') + '</div>' +
+                        '<div style="font-family:\'Courier New\',monospace;font-size:0.7rem;color:#555;margin-top:4px;">' + dayStr + '</div>' +
+                        '<div style="font-family:\'Courier New\',monospace;font-size:0.65rem;color:#777;margin-top:2px;">' + dateStr + '</div>' +
+                    '</div>' +
+                    '<div style="border-top:2px dashed #ccc;margin:0 16px;"></div>' +
+                    '<div style="padding:12px 24px;">' +
+                        '<div style="display:flex;justify-content:space-between;font-family:\'Courier New\',monospace;font-size:0.7rem;color:#555;">' +
+                            '<span>TXN#' + txId + '</span>' +
+                            '<span>' + timeStr + '</span>' +
+                        '</div>' +
+                        '<div style="display:flex;justify-content:space-between;font-family:\'Courier New\',monospace;font-size:0.7rem;color:#555;margin-top:2px;">' +
+                            '<span>SLSPRSN: ' + esc(cashierDisplay) + '</span>' +
+                            '<span>' + esc(sale.payment_method || 'Cash') + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="border-top:1px dashed #ccc;margin:0 16px;"></div>' +
+                    '<div style="padding:10px 24px;">' +
+                        '<div style="font-family:\'Courier New\',monospace;font-size:0.65rem;color:#888;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Item Description</div>' +
+                        itemLines +
+                    '</div>' +
+                    '<div style="border-top:1px dashed #ccc;margin:0 16px;"></div>' +
+                    '<div style="padding:10px 24px;">' +
+                        '<div style="display:flex;justify-content:space-between;font-family:\'Courier New\',monospace;font-size:0.75rem;font-weight:700;color:#1a1a2e;">' +
+                            '<span>TOTAL</span>' +
+                            '<span>' + formatCurrency(sale.total_amount) + '</span>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div style="border-top:1px dashed #ccc;margin:0 16px;"></div>' +
+                    '<div style="padding:10px 24px 6px;text-align:center;">' +
+                        '<div style="font-family:\'Courier New\',monospace;font-size:0.65rem;color:#555;">Payment Method</div>' +
+                        '<div style="font-family:\'Courier New\',monospace;font-size:0.8rem;font-weight:700;color:' + payColor + ';margin-top:2px;">' + esc(sale.payment_method || 'Cash').toUpperCase() + '</div>' +
+                    '</div>' +
+                    '<div style="border-top:1px dashed #ccc;margin:0 16px;"></div>' +
+                    '<div style="padding:12px 24px 16px;text-align:center;">' +
+                        '<div style="font-family:\'Courier New\',monospace;font-size:0.85rem;font-weight:900;color:#1a1a2e;letter-spacing:1px;">THANK YOU!</div>' +
+                        '<div style="font-family:\'Courier New\',monospace;font-size:0.6rem;color:#999;margin-top:4px;">This is your official receipt</div>' +
+                        '<div style="font-family:\'Courier New\',monospace;font-size:0.55rem;color:#bbb;margin-top:6px;letter-spacing:2px;">* * * * * * * * * * * * * * * *</div>' +
+                    '</div>' +
+                '</div>';
+            }).join('') + '</div>';
+        }
+
+        return '<div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0;">' +
+            '<div style="padding:16px 20px;border-bottom:1px solid #1e2736;display:flex;gap:12px;flex-wrap:wrap;">' +
+                '<div style="flex:1;min-width:140px;background:#0d1117;border:1px solid #2a3040;border-radius:10px;padding:12px;">' +
+                    '<div style="color:#666;font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;">Transactions</div>' +
+                    '<div style="color:#a78bfa;font-weight:700;font-size:1.4rem;margin-top:2px;">' + historySales.length + '</div>' +
+                '</div>' +
+                '<div style="flex:1;min-width:140px;background:#0d1117;border:1px solid #2a3040;border-radius:10px;padding:12px;">' +
+                    '<div style="color:#666;font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;">Total Sales</div>' +
+                    '<div style="color:#22c55e;font-weight:700;font-size:1.4rem;margin-top:2px;">' + formatCurrency(total) + '</div>' +
+                '</div>' +
+                '<div style="flex:1;min-width:140px;background:#0d1117;border:1px solid #2a3040;border-radius:10px;padding:12px;">' +
+                    '<div style="color:#666;font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;">Cash</div>' +
+                    '<div style="color:#22c55e;font-weight:700;font-size:1.4rem;margin-top:2px;">' + formatCurrency(cashTotal) + '</div>' +
+                '</div>' +
+                '<div style="flex:1;min-width:140px;background:#0d1117;border:1px solid #2a3040;border-radius:10px;padding:12px;">' +
+                    '<div style="color:#666;font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;">GCash</div>' +
+                    '<div style="color:#3b82f6;font-weight:700;font-size:1.4rem;margin-top:2px;">' + formatCurrency(gcashTotal) + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="flex:1;overflow-y:auto;padding:16px 20px;background:#111827;">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;">' +
+                        '<div style="color:#94a3b8;font-size:0.8rem;font-weight:600;">' + sorted.length + ' receipt' + (sorted.length !== 1 ? 's' : '') + '</div>' +
+                        '<button id="tx-view-all" style="padding:4px 10px;border-radius:6px;border:1px solid ' + (historyViewAll ? '#6366f1' : '#30363d') + ';background:' + (historyViewAll ? '#6366f120' : 'transparent') + ';color:' + (historyViewAll ? '#a78bfa' : '#64748b') + ';font-size:0.7rem;cursor:pointer;font-weight:600;">' + (historyViewAll ? 'All Dates' : 'Today Only') + '</button>' +
+                    '</div>' +
+                    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' +
+                        (historyViewAll ?
+                        '<input type="date" id="tx-date-from" value="' + historyDateFrom + '" style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:0.75rem;" title="From date">' +
+                        '<span style="color:#666;font-size:0.7rem;">to</span>' +
+                        '<input type="date" id="tx-date-to" value="' + historyDateTo + '" style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:0.75rem;" title="To date">' +
+                        '' : '') +
+                        '<label style="color:#666;font-size:0.7rem;text-transform:uppercase;letter-spacing:1px;margin-left:4px;">Sort</label>' +
+                        '<select id="tx-sort" style="background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:5px 10px;color:#e2e8f0;font-size:0.75rem;">' +
+                            '<option value="date-desc"' + (historySort === 'date-desc' ? ' selected' : '') + '>Date (Newest)</option>' +
+                            '<option value="date-asc"' + (historySort === 'date-asc' ? ' selected' : '') + '>Date (Oldest)</option>' +
+                            '<option value="amount-desc"' + (historySort === 'amount-desc' ? ' selected' : '') + '>Amount (High)</option>' +
+                            '<option value="amount-asc"' + (historySort === 'amount-asc' ? ' selected' : '') + '>Amount (Low)</option>' +
+                            '<option value="txn-asc"' + (historySort === 'txn-asc' ? ' selected' : '') + '>TXN # (Low)</option>' +
+                            '<option value="txn-desc"' + (historySort === 'txn-desc' ? ' selected' : '') + '>TXN # (High)</option>' +
+                        '</select>' +
+                    '</div>' +
+                '</div>' +
+                receiptsHtml +
+            '</div>' +
+        '</div>';
+    }
+
+    function render() {
+        var total = getCartTotal();
+        var initials = posUser ? (posUser.first_name || '').charAt(0) + (posUser.last_name || '').charAt(0) : '??';
+
+        app.innerHTML =
+        '<div style="display:flex;flex-direction:column;height:100vh;background:#0a0e1a;">' +
+        '<div style="background:#0d1117;border-bottom:1px solid #2a3040;padding:10px 24px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">' +
+            '<div style="display:flex;align-items:center;gap:12px;">' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                    '<span style="font-size:1.2rem;">\ud83c\udfae</span>' +
+                    '<span style="color:#22c55e;font-weight:700;font-size:0.85rem;letter-spacing:1px;">POS TERMINAL</span>' +
+                '</div>' +
+                '<button onclick="window.__posSubmitReport()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;font-size:0.75rem;font-weight:600;padding:6px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 15px rgba(99,102,241,0.4)\'" onmouseleave="this.style.boxShadow=\'none\'">Submit Report</button>' +
+                '<button onclick="window.__posToggleHistory()" style="background:' + (showHistory ? '#22c55e' : '#1a1f2e') + ';border:1px solid ' + (showHistory ? '#22c55e' : '#30363d') + ';color:' + (showHistory ? '#fff' : '#94a3b8') + ';font-size:0.75rem;font-weight:600;padding:6px 16px;border-radius:6px;cursor:pointer;letter-spacing:1px;transition:all 0.2s;">' + (showHistory ? 'Back to POS' : '\ud83d\udccb History') + '</button>' +
+            '</div>' +
+            '<div style="display:flex;align-items:center;gap:12px;">' +
+                '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:8px;padding:6px 14px;color:#22c55e;font-size:0.8rem;font-weight:600;">' + esc(posUser.branch_name || posUser.branch_id || 'Branch') + '</div>' +
+                '<div style="display:flex;align-items:center;gap:8px;">' +
+                    '<div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#22c55e,#10b981);display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.7rem;font-weight:700;">' + esc(initials) + '</div>' +
+                    '<span style="color:#e2e8f0;font-size:0.8rem;">' + esc(posUser.first_name) + '</span>' +
+                '</div>' +
+                '<button onclick="window.__posTerminalLogout()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:0.8rem;padding:6px 12px;border:1px solid #30363d;border-radius:6px;transition:all 0.2s;" onmouseenter="this.style.color=\'#ef4444\';this.style.borderColor=\'#ef4444\'" onmouseleave="this.style.color=\'#94a3b8\';this.style.borderColor=\'#30363d\'">Logout</button>' +
+            '</div>' +
+        '</div>' +
+        '<div style="flex:1;display:flex;overflow:hidden;min-height:0;">' +
+        (showHistory ? renderHistoryView() : renderPOSView()) +
         '</div></div>';
 
         attachEvents();
     }
 
     function attachEvents() {
+        if (showHistory) {
+            var sortSel = document.getElementById('tx-sort');
+            if (sortSel) {
+                sortSel.addEventListener('change', function(e) {
+                    historySort = e.target.value;
+                    render();
+                });
+            }
+            var viewAllBtn = document.getElementById('tx-view-all');
+            if (viewAllBtn) {
+                viewAllBtn.addEventListener('click', function() {
+                    historyViewAll = !historyViewAll;
+                    if (!historyViewAll) {
+                        historyDateFrom = '';
+                        historyDateTo = '';
+                    }
+                    loadHistory();
+                });
+            }
+            var dateFrom = document.getElementById('tx-date-from');
+            var dateTo = document.getElementById('tx-date-to');
+            if (dateFrom) {
+                dateFrom.addEventListener('change', function(e) {
+                    historyDateFrom = e.target.value;
+                    loadHistory();
+                });
+            }
+            if (dateTo) {
+                dateTo.addEventListener('change', function(e) {
+                    historyDateTo = e.target.value;
+                    loadHistory();
+                });
+            }
+            return;
+        }
+
         var searchInput = document.getElementById('pos-search');
         if (searchInput) {
             searchInput.addEventListener('input', function(e) {
@@ -437,23 +641,19 @@ function renderPOSTerminal() {
                 '</div>' +
                 '<button onclick="document.getElementById(\'pos-edit-modal\').remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;">&times;</button>' +
             '</div>' +
-
             '<div style="margin-bottom:16px;">' +
                 '<label style="color:#94a3b8;font-size:0.75rem;font-weight:600;display:block;margin-bottom:6px;">DISCOUNT (\u20b1 OFF)</label>' +
                 '<input type="number" id="edit-discount" min="0" step="1" value="' + (cust.discount || 0) + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:0.9rem;box-sizing:border-box;">' +
             '</div>' +
-
             (isToken ?
             '<div style="margin-bottom:16px;">' +
                 '<label style="color:#94a3b8;font-size:0.75rem;font-weight:600;display:block;margin-bottom:6px;">FREE TOKENS (BONUS)</label>' +
                 '<input type="number" id="edit-free-tokens" min="0" step="1" value="' + (cust.freeTokens || 0) + '" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:0.9rem;box-sizing:border-box;">' +
             '</div>' : '') +
-
             '<div style="background:#0d1117;border-radius:8px;padding:10px 12px;margin-bottom:16px;">' +
                 '<div style="color:#888;font-size:0.7rem;margin-bottom:4px;">Final Price</div>' +
                 '<div id="edit-preview-price" style="color:#22c55e;font-weight:700;font-size:1.2rem;">' + formatCurrency(getEffectivePrice(product)) + '</div>' +
             '</div>' +
-
             '<div style="display:flex;gap:8px;">' +
                 '<button onclick="window.__posEditClear(\'' + productId + '\')" style="flex:1;padding:10px;border:1px solid #30363d;border-radius:8px;background:#0d1117;color:#94a3b8;font-size:0.85rem;cursor:pointer;">Clear</button>' +
                 '<button onclick="window.__posEditSave(\'' + productId + '\')" style="flex:2;padding:10px;border:none;border-radius:8px;background:#22c55e;color:#fff;font-size:0.85rem;font-weight:600;cursor:pointer;">Save</button>' +
@@ -473,11 +673,7 @@ function renderPOSTerminal() {
             var finalPrice = product.price - (product.discount || 0) - d;
             if (finalPrice < 0) finalPrice = 0;
             previewPrice.textContent = formatCurrency(finalPrice);
-            if (d > 0 || f > 0) {
-                previewPrice.style.color = '#22c55e';
-            } else {
-                previewPrice.style.color = '#e2e8f0';
-            }
+            previewPrice.style.color = (d > 0 || f > 0) ? '#22c55e' : '#e2e8f0';
         }
 
         if (discountInput) discountInput.addEventListener('input', updatePreview);
@@ -561,6 +757,16 @@ function renderPOSTerminal() {
         Toast.success('Extra token added');
     };
 
+    window.__posToggleHistory = function() {
+        showHistory = !showHistory;
+        if (showHistory) {
+            loadHistory();
+        } else {
+            loadTracking();
+            render();
+        }
+    };
+
     window.__posLookupMember = async function() {
         var input = document.getElementById('loyalty-card-input');
         if (!input) return;
@@ -582,7 +788,7 @@ function renderPOSTerminal() {
     window.__posClearMember = function() { loyaltyMember = null; render(); };
 
     window.__posSubmitReport = async function() {
-        if (!await confirmAsync('Submit daily sales report to owner?', 'Submit Report')) return;
+        if (!await confirmAsync('Submit daily sales report to owner?', 'Submit Report', 'success')) return;
         try {
             var result = await posApiPost('/pos-reports', {});
             Toast.success('Report submitted! Sales: ' + formatCurrency(result.total_sales) + ' (' + result.total_transactions + ' transactions)');
@@ -601,7 +807,7 @@ function renderPOSTerminal() {
     async function completeSale() {
         if (cart.length === 0) { Toast.error('Cart is empty'); return; }
         var total = getCartTotal();
-        if (!await confirmAsync('Complete sale for ' + formatCurrency(total) + '?', 'Complete Sale')) return;
+        if (!await confirmAsync('Complete sale for ' + formatCurrency(total) + '?', 'Complete Sale', 'success')) return;
 
         var areaTotals = {};
         cart.forEach(function(item) {
@@ -643,14 +849,13 @@ function renderPOSTerminal() {
         cart = [];
         loyaltyMember = null;
         await Promise.all([loadProducts(), loadTracking()]);
-    }
-
-    function esc(str) {
-        if (!str) return '';
-        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        if (showHistory) await loadHistory();
     }
 
     loadData();
+    setInterval(function() {
+        if (!showHistory) loadTracking();
+    }, 30000);
 }
 
 Router.register('pos-terminal', renderPOSTerminal);

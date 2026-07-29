@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Numeric, Text, Date
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Numeric, Text, Date, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
@@ -21,6 +21,8 @@ class Payslip(Base):
     overtime_hours = Column(Numeric(6, 1), default=0)
     notes = Column(Text)
     status = Column(String(20), default="pending")
+    is_archived = Column(Boolean, default=False, index=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

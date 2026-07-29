@@ -9,6 +9,7 @@ import json
 from models.product import Product
 from models.sale import Sale, SaleItem
 from models.tracking_sheet import TrackingSheet
+from models.user import User
 
 
 def create_product(db: Session, branch_id: int, name: str, category: str = None,
@@ -74,7 +75,7 @@ def create_sale(db: Session, branch_id: int, sold_by: int, items: List[dict], pa
                 "unit_price": unit_price,
                 "subtotal": subtotal,
                 "item_type": item_type,
-                "token_count": token_count * qty
+                "token_count": qty
             })
         else:
             product = db.query(Product).filter(
@@ -128,128 +129,113 @@ def auto_update_tracking_sheet(db: Session, sale: Sale, items: List[dict], payme
         TrackingSheet.sheet_date == today
     ).first()
 
+    default_stocks = [
+        {"token": "50", "opening": 0, "add": 0, "total_count": 0, "remaining": 0, "sold": 0, "amount": 0},
+        {"token": "100", "opening": 0, "add": 0, "total_count": 0, "remaining": 0, "sold": 0, "amount": 0},
+        {"token": "150", "opening": 0, "add": 0, "total_count": 0, "remaining": 0, "sold": 0, "amount": 0},
+        {"token": "250", "opening": 0, "add": 0, "total_count": 0, "remaining": 0, "sold": 0, "amount": 0},
+        {"token": "SMASH", "opening": 0, "add": 0, "total_count": 0, "remaining": 0, "sold": 0, "amount": 0},
+        {"token": "EXTRA", "opening": 0, "add": 0, "total_count": 0, "remaining": 0, "sold": 0, "amount": 0},
+    ]
+
     if not ts:
+        seller = db.query(User).filter(User.id == sale.sold_by).first() if sale.sold_by else None
+        cashier_name = (seller.first_name + ' ' + seller.last_name).strip() if seller else None
         ts = TrackingSheet(
             branch_id=sale.branch_id,
             area=area,
             sheet_date=today,
+            cashier_name=cashier_name,
             status="draft",
             created_by=sale.sold_by,
             data={
-                "items": [
-                    {"qty": 0, "item": "10 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-                    {"qty": 0, "item": "20 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-                    {"qty": 0, "item": "50 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-                    {"qty": 0, "item": "100 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-                    {"qty": 0, "item": "150 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-                    {"qty": 0, "item": "250 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-                    {"qty": 0, "item": "", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-                    {"qty": 0, "item": "", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-                ],
-                "token_decode": {"10": 0, "20": 0, "50": 0, "100": 0, "150": 0, "250": 0},
-                "cash": {"expenses": 0, "recharge": 0, "cash_in": 0},
-                "smash": {"count": 0, "revenue": 0},
-                "extra": {"count": 0, "revenue": 0},
-                "payments": {"cash": 0, "gcash": 0, "other": 0}
+                "stocks": [dict(s) for s in default_stocks],
+                "cash_denoms": {"1000": 0, "500": 0, "200": 0, "100": 0, "50": 0, "20": 0, "10": 0, "5": 0},
+                "expenses_list": []
             }
         )
         db.add(ts)
         db.flush()
 
     data = ts.data or {}
-    if "items" not in data:
-        data["items"] = [
-            {"qty": 0, "item": "10 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-            {"qty": 0, "item": "20 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-            {"qty": 0, "item": "50 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-            {"qty": 0, "item": "100 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-            {"qty": 0, "item": "150 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-            {"qty": 0, "item": "250 Tokens", "cost": 0, "amount": 0, "quantity": 0, "share": 0, "total_sales": 0},
-        ]
-    if "token_decode" not in data:
-        data["token_decode"] = {"10": 0, "20": 0, "50": 0, "100": 0, "150": 0, "250": 0}
-    if "cash" not in data:
-        data["cash"] = {"expenses": 0, "recharge": 0, "cash_in": 0}
-    if "smash" not in data:
-        data["smash"] = {"count": 0, "revenue": 0}
-    if "extra" not in data:
-        data["extra"] = {"count": 0, "revenue": 0}
-    if "payments" not in data:
-        data["payments"] = {"cash": 0, "gcash": 0, "other": 0}
+    if "stocks" not in data:
+        data["stocks"] = [dict(s) for s in default_stocks]
+    if "cash_denoms" not in data:
+        data["cash_denoms"] = {"1000": 0, "500": 0, "200": 0, "100": 0, "50": 0, "20": 0, "10": 0, "5": 0}
+    if "expenses_list" not in data:
+        data["expenses_list"] = []
+    if "_gcash" not in data:
+        data["_gcash"] = 0
 
     sale_total = float(sale.total_amount or 0)
     pm = (payment_method or "cash").lower()
-    if pm in ("gcash", "gcash"):
-        data["payments"]["gcash"] = data["payments"].get("gcash", 0) + sale_total
-    elif pm == "cash":
-        data["payments"]["cash"] = data["payments"].get("cash", 0) + sale_total
-    else:
-        data["payments"]["other"] = data["payments"].get("other", 0) + sale_total
+    if pm == "gcash":
+        data["_gcash"] = data.get("_gcash", 0) + sale_total
 
-    token_decode = data["token_decode"]
-    items_list = data["items"]
+    stocks = data["stocks"]
 
     for item_data in items:
         item_type = item_data.get("item_type", "regular")
         qty = item_data.get("quantity", 1)
 
         if item_type == "smash":
-            tc = item_data.get("token_count", 0) * qty
             cp = float(item_data.get("custom_price", 0) or 0)
-            data["smash"]["count"] = data["smash"].get("count", 0) + tc
-            data["smash"]["revenue"] = data["smash"].get("revenue", 0) + (cp * qty)
+            for s in stocks:
+                if s["token"] == "SMASH":
+                    s["sold"] = s.get("sold", 0) + qty
+                    s["amount"] = s.get("amount", 0) + (cp * qty)
+                    break
 
         elif item_type == "extra":
-            tc = item_data.get("token_count", 0) * qty
             cp = float(item_data.get("custom_price", 0) or 0)
-            data["extra"]["count"] = data["extra"].get("count", 0) + tc
-            data["extra"]["revenue"] = data["extra"].get("revenue", 0) + (cp * qty)
+            for s in stocks:
+                if s["token"] == "EXTRA":
+                    s["sold"] = s.get("sold", 0) + qty
+                    s["amount"] = s.get("amount", 0) + (cp * qty)
+                    break
 
         else:
             product = db.query(Product).filter(Product.id == item_data.get("product_id")).first()
             if not product:
                 continue
-
             product_name = product.name or ""
-            product_price = float(product.price or 0)
-            amount = product_price * qty
 
-            matched = False
-            for row in items_list:
-                if row.get("item") == product_name:
-                    row["qty"] = row.get("qty", 0) + qty
-                    row["quantity"] = row.get("quantity", 0) + qty
-                    row["amount"] = row.get("amount", 0) + amount
-                    row["total_sales"] = row.get("total_sales", 0) + amount
-                    matched = True
+            token_num = 0
+            for part in product_name.split():
+                try:
+                    token_num = int(part)
                     break
+                except ValueError:
+                    continue
 
-            if not matched:
-                items_list.append({
-                    "qty": qty,
-                    "item": product_name,
-                    "cost": 0,
-                    "amount": amount,
-                    "quantity": qty,
-                    "share": 0,
-                    "total_sales": amount
-                })
+            token_key = str(token_num) if token_num > 0 else None
 
-            if product.category == "Tokens":
-                token_num = 0
-                for part in product_name.split():
-                    try:
-                        token_num = int(part)
+            if token_key:
+                for s in stocks:
+                    if s["token"] == token_key:
+                        s["sold"] = s.get("sold", 0) + qty
+                        token_val = int(s["token"]) if s["token"].isdigit() else 0
+                        s["amount"] = s.get("sold", 0) * token_val
                         break
-                    except ValueError:
-                        continue
-                if token_num > 0:
-                    key = str(token_num)
-                    token_decode[key] = token_decode.get(key, 0) + (token_num * qty)
+
+    total_sales = 0
+    total_sold = 0
+    for s in stocks:
+        s["opening"] = int(s.get("opening", 0)) or 0
+        s["add"] = int(s.get("add", 0)) or 0
+        s["total_count"] = s["opening"] + s["add"]
+        if s["token"] in ("SMASH", "EXTRA"):
+            pass
+        else:
+            token_val = int(s["token"]) if s["token"].isdigit() else 0
+            s["amount"] = s.get("sold", 0) * token_val
+        total_sales += s.get("amount", 0)
+        total_sold += s.get("sold", 0)
 
     ts.data = data
-    ts.total_sales = float(ts.total_sales or 0) + sale_total
+    ts.total_sales = total_sales
     ts.total_cash_on_hand = float(ts.total_cash_on_hand or 0) + sale_total
+    ts.cashflow = total_sales
     flag_modified(ts, "data")
     db.commit()
 

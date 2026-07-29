@@ -22,6 +22,8 @@ class Member(Base):
     issued_date = Column(Date, server_default=func.current_date())
     expiry_date = Column(Date, nullable=True)
     is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -33,7 +35,7 @@ class MemberTransaction(Base):
     __tablename__ = "member_transactions"
 
     id = Column(Integer, primary_key=True, index=True)
-    member_id = Column(Integer, ForeignKey("members.id", on_delete="CASCADE"), nullable=False)
+    member_id = Column(Integer, ForeignKey("members.id", ondelete="CASCADE"), nullable=False)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     amount = Column(Numeric(10, 2), nullable=False)
     points_earned = Column(Integer, default=0)

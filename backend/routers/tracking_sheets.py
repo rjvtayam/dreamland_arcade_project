@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func as sql_func
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 
 from database import get_db
 from schemas.tracking_sheet import TrackingSheetCreate, TrackingSheetUpdate
@@ -35,6 +35,8 @@ def build_response(ts, db):
         "remarks_over": ts.remarks_over,
         "data": ts.data or {},
         "status": ts.status,
+        "is_deleted": ts.is_deleted or 0,
+        "deleted_at": ts.deleted_at.isoformat() if ts.deleted_at else None,
         "created_by": ts.created_by,
         "creator_name": f"{creator.first_name} {creator.last_name}" if creator else None,
         "created_at": ts.created_at.isoformat() if ts.created_at else None,
@@ -61,13 +63,14 @@ def list_sheets(
     area: Optional[str] = None,
     sheet_date: Optional[str] = None,
     status: Optional[str] = None,
+    deleted: Optional[bool] = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
     if current_user.role != "owner":
         branch_id = current_user.branch_id
 
-    query = db.query(TrackingSheet)
+    query = db.query(TrackingSheet).filter(TrackingSheet.is_deleted == (1 if deleted else 0))
     if branch_id:
         query = query.filter(TrackingSheet.branch_id == branch_id)
     if area:
@@ -93,7 +96,7 @@ def history(
     if current_user.role != "owner":
         branch_id = current_user.branch_id
 
-    query = db.query(TrackingSheet).filter(TrackingSheet.status == "submitted")
+    query = db.query(TrackingSheet).filter(TrackingSheet.status == "submitted", TrackingSheet.is_deleted == 0)
     if branch_id:
         query = query.filter(TrackingSheet.branch_id == branch_id)
     if area:
@@ -107,6 +110,23 @@ def history(
     return [build_response(s, db) for s in sheets]
 
 
+@router.get("/deleted/count")
+def deleted_count(
+    branch_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
+    query = db.query(TrackingSheet).filter(TrackingSheet.is_deleted == 1)
+    if branch_id:
+        query = query.filter(TrackingSheet.branch_id == branch_id)
+
+    count = query.count()
+    return {"count": count}
+
+
 @router.get("/today")
 def today_sheets(
     branch_id: Optional[int] = None,
@@ -117,7 +137,7 @@ def today_sheets(
         branch_id = current_user.branch_id
 
     today = date.today()
-    query = db.query(TrackingSheet).filter(TrackingSheet.sheet_date == today)
+    query = db.query(TrackingSheet).filter(TrackingSheet.sheet_date == today, TrackingSheet.is_deleted == 0)
     if branch_id:
         query = query.filter(TrackingSheet.branch_id == branch_id)
 
@@ -280,3 +300,61 @@ def get_products_for_sheet(
         "price": float(p.price),
         "stock": p.stock
     } for p in products]
+
+
+@router.post("/{sheet_id}/soft-delete")
+def soft_delete_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    ts = db.query(TrackingSheet).filter(TrackingSheet.id == sheet_id).first()
+    if not ts:
+        raise HTTPException(status_code=404, detail="Tracking sheet not found")
+    if current_user.role != "owner" and ts.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if ts.is_deleted:
+        raise HTTPException(status_code=400, detail="Sheet already deleted")
+
+    ts.is_deleted = 1
+    ts.deleted_at = datetime.utcnow()
+    db.commit()
+    return {"detail": "Sheet moved to trash"}
+
+
+@router.post("/{sheet_id}/restore")
+def restore_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    ts = db.query(TrackingSheet).filter(TrackingSheet.id == sheet_id).first()
+    if not ts:
+        raise HTTPException(status_code=404, detail="Tracking sheet not found")
+    if current_user.role != "owner" and ts.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not ts.is_deleted:
+        raise HTTPException(status_code=400, detail="Sheet is not in trash")
+
+    ts.is_deleted = 0
+    ts.deleted_at = None
+    db.commit()
+    return {"detail": "Sheet restored"}
+
+
+@router.delete("/{sheet_id}")
+def permanent_delete_sheet(
+    sheet_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    ts = db.query(TrackingSheet).filter(TrackingSheet.id == sheet_id).first()
+    if not ts:
+        raise HTTPException(status_code=404, detail="Tracking sheet not found")
+    if current_user.role != "owner" and ts.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    db.query(TrackingSheetItem).filter(TrackingSheetItem.tracking_sheet_id == ts.id).delete()
+    db.delete(ts)
+    db.commit()
+    return {"detail": "Sheet permanently deleted"}

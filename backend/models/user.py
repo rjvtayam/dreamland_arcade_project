@@ -15,6 +15,7 @@ class User(Base):
     role = Column(String(20), nullable=False, default="employee")
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=True)
     daily_rate = Column(Numeric(10,2), nullable=False, default=0)
+    employment_type = Column(String(20), nullable=False, default="full_time")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

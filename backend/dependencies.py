@@ -6,6 +6,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from config import settings
 from database import get_db
@@ -47,12 +48,22 @@ def get_current_user(
     if user_id is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
 
+    # Set safe defaults BEFORE querying users (RLS on users table needs these)
+    db.execute(text("SET app.current_branch_id = '0'"))
+    db.execute(text("SET app.current_user_role = 'owner'"))
+
     from models.user import User
     user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account deactivated")
+
+    # Now set the actual RLS session variables for this user
+    branch_id = user.branch_id or 0
+    db.execute(text("SET app.current_branch_id = :bid"), {"bid": str(branch_id)})
+    db.execute(text("SET app.current_user_role = :role"), {"role": user.role})
+
     return user
 
 

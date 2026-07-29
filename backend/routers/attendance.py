@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import Optional
 from datetime import date
 
@@ -21,6 +22,8 @@ def clock_in(
 ):
     from services.auth_service import authenticate_user
     user = authenticate_user(db, data.pin, data.branch_id)
+    db.execute(text("SET app.current_branch_id = :bid"), {"bid": str(user.branch_id or 0)})
+    db.execute(text("SET app.current_user_role = :role"), {"role": user.role})
     return attendance_service.clock_in(db, user.id, data.branch_id)
 
 
@@ -31,6 +34,8 @@ def clock_out(
 ):
     from services.auth_service import authenticate_user
     user = authenticate_user(db, data.pin)
+    db.execute(text("SET app.current_branch_id = :bid"), {"bid": str(user.branch_id or 0)})
+    db.execute(text("SET app.current_user_role = :role"), {"role": user.role})
     return attendance_service.clock_out(db, user.id)
 
 
@@ -115,6 +120,7 @@ def list_attendance(
             "id": a.id,
             "user_id": a.user_id,
             "user_name": f"{user.first_name} {user.last_name}" if user else None,
+            "user_role": user.role if user else None,
             "branch_id": a.branch_id,
             "branch_name": branch.name if branch else None,
             "clock_in": a.clock_in.isoformat(),

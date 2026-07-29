@@ -31,6 +31,7 @@ def my_schedule(db: Session = Depends(get_db), current_user: User = Depends(get_
         result.append({
             "id": s.id,
             "day_of_week": s.day_of_week,
+            "week_number": getattr(s, 'week_number', 0),
             "day_name": DAY_NAMES[s.day_of_week],
             "start_time": str(s.start_time),
             "end_time": str(s.end_time),
@@ -66,6 +67,7 @@ def list_schedules(
             "branch_id": s.branch_id,
             "branch_name": branch.name if branch else None,
             "day_of_week": s.day_of_week,
+            "week_number": getattr(s, 'week_number', 0),
             "day_name": DAY_NAMES[s.day_of_week],
             "start_time": str(s.start_time),
             "end_time": str(s.end_time),
@@ -87,7 +89,7 @@ def create_schedule(
     if data.day_of_week < 0 or data.day_of_week > 6:
         raise HTTPException(status_code=400, detail="day_of_week must be 0-6")
     schedule = schedule_service.create_schedule(
-        db, data.user_id, data.branch_id, data.day_of_week, data.start_time, data.end_time, getattr(data, 'station', None)
+        db, data.user_id, data.branch_id, data.day_of_week, data.start_time, data.end_time, getattr(data, 'station', None), getattr(data, 'week_number', 0)
     )
     return {"id": schedule.id, "detail": "Schedule created"}
 
@@ -130,7 +132,6 @@ def delete_schedule(
 @router.post("/reshuffle")
 def reshuffle_schedules(
     branch_id: Optional[int] = None,
-    week_offset: int = 0,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
@@ -155,75 +156,107 @@ def reshuffle_schedules(
         db.delete(s)
     db.flush()
 
-    random.seed(week_offset * 7 + branch_id)
+    import random as _random
 
-    day_off_map = {}
     full_time_ids = [u.id for u in full_time]
-    off_days_pool = [1, 2, 3, 4]
-    for i, uid in enumerate(full_time_ids):
-        day_off = off_days_pool[(i + week_offset) % len(off_days_pool)]
-        day_off_map[uid] = day_off
-
-    per_user_stations = {}
-    for uid in full_time_ids:
-        shuffled_stations = list(STATIONS)
-        random.shuffle(shuffled_stations)
-        per_user_stations[uid] = shuffled_stations
+    WORK_STATIONS = [s for s in STATIONS if s != "Day Off"]
 
     created = 0
-    for day in range(7):
-        working_today = []
-        for user in full_time:
-            if day_off_map.get(user.id) != day:
-                working_today.append(user)
+    for week_num in range(4):
+        seed_val = week_num * 31 + branch_id * 7 + 42
+        rng = _random.Random(seed_val)
 
-        for user in part_time:
-            if day in [6, 0]:
-                working_today.append(user)
+        day_off_pool = [1, 2, 3, 4]
+        shuffled_days = list(day_off_pool)
+        rng.shuffle(shuffled_days)
+        day_off_map = {}
+        for i, uid in enumerate(full_time_ids):
+            day_off_map[uid] = shuffled_days[i % len(shuffled_days)]
 
-        stations_today = list(STATIONS)
-        random.shuffle(stations_today)
-        while len(stations_today) < len(working_today):
-            stations_today.extend(STATIONS)
+        per_user_rotation = {}
+        per_user_pos = {}
+        all_user_ids = full_time_ids + [u.id for u in part_time]
+        for uid in all_user_ids:
+            rotation = list(WORK_STATIONS)
+            rng.shuffle(rotation)
+            per_user_rotation[uid] = rotation
+            per_user_pos[uid] = 0
 
-        for i, user in enumerate(working_today):
-            is_part_time = user.id in PART_TIME_IDS
-            start = "10:00"
-            end = "18:00" if is_part_time else "20:00"
-            station = stations_today[i % len(stations_today)]
+        week_assignments = {}
 
-            schedule = Schedule(
-                user_id=user.id,
-                branch_id=branch_id,
-                day_of_week=day,
-                start_time=start,
-                end_time=end,
-                station=station,
-                is_active=True
-            )
-            db.add(schedule)
-            created += 1
+        for day in range(7):
+            working_full = [u for u in full_time if day_off_map.get(u.id) != day]
+            working_part = [u for u in part_time if day in [0, 6]]
+            working_today = working_full + working_part
+            num_workers = len(working_today)
 
-        for user in full_time:
-            if day_off_map.get(user.id) == day:
+            rng.shuffle(working_today)
+
+            assigned_today = {}
+            station_counts = {s: 0 for s in WORK_STATIONS}
+            per_user_pos_today = {}
+
+            for user in working_today:
+                rotation = per_user_rotation[user.id]
+                pos = per_user_pos[user.id]
+                best_station = None
+                best_count = 999
+                for offset in range(len(rotation)):
+                    candidate = rotation[(pos + offset) % len(rotation)]
+                    if station_counts[candidate] < best_count:
+                        best_count = station_counts[candidate]
+                        best_station = candidate
+                assigned_today[user.id] = best_station
+                station_counts[best_station] += 1
+                per_user_pos[user.id] = pos + 1
+
+            week_assignments[day] = assigned_today
+
+        for day in range(7):
+            assigned_today = week_assignments[day]
+            working_full = [u for u in full_time if day_off_map.get(u.id) != day]
+            working_part = [u for u in part_time if day in [0, 6]]
+            working_today = working_full + working_part
+
+            for user in working_today:
+                is_part_time = user.id in PART_TIME_IDS
+                start = "10:00"
+                end = "18:00" if is_part_time else "20:00"
+                station = assigned_today.get(user.id, "Arcade Cashier")
                 schedule = Schedule(
                     user_id=user.id,
                     branch_id=branch_id,
                     day_of_week=day,
-                    start_time="10:00",
-                    end_time="20:00",
-                    station="Day Off",
+                    week_number=week_num,
+                    start_time=start,
+                    end_time=end,
+                    station=station,
                     is_active=True
                 )
                 db.add(schedule)
                 created += 1
 
+            for user in full_time:
+                if day_off_map.get(user.id) == day:
+                    schedule = Schedule(
+                        user_id=user.id,
+                        branch_id=branch_id,
+                        day_of_week=day,
+                        week_number=week_num,
+                        start_time="10:00",
+                        end_time="20:00",
+                        station="Day Off",
+                        is_active=True
+                    )
+                    db.add(schedule)
+                    created += 1
+
     db.commit()
 
     return {
-        "detail": f"Reshuffled {created} schedules for week offset {week_offset}",
+        "detail": f"Reshuffled 4 weeks ({created} schedules) for branch {branch_id}",
         "total": created,
-        "week_offset": week_offset
+        "weeks": 4
     }
 
 
@@ -249,59 +282,112 @@ def generate_initial_schedules(
         User.is_active == True
     ).order_by(User.id).all()
 
-    day_off_map = {}
-    off_days_pool = [1, 2, 3, 4]
-    for i, user in enumerate(full_time):
-        day_off = off_days_pool[i % len(off_days_pool)]
-        day_off_map[user.id] = day_off
+    existing = db.query(Schedule).filter(Schedule.branch_id == branch_id).all()
+    for s in existing:
+        db.delete(s)
+    db.flush()
+
+    import random as _random
+
+    full_time_ids = [u.id for u in full_time]
+    WORK_STATIONS = [s for s in STATIONS if s != "Day Off"]
 
     created = 0
-    for day in range(7):
-        working_today = []
-        for user in full_time:
-            if day_off_map.get(user.id) != day:
-                working_today.append(user)
-        for user in part_time:
-            if day in [6, 0]:
-                working_today.append(user)
+    for week_num in range(4):
+        rng = _random.Random(branch_id * 31 + week_num * 11 + 7)
 
-        random.seed(day * 10 + branch_id)
-        stations_today = list(STATIONS)
-        random.shuffle(stations_today)
-        while len(stations_today) < len(working_today):
-            stations_today.extend(STATIONS)
+        day_off_pool = [1, 2, 3, 4]
+        shuffled_days = list(day_off_pool)
+        rng.shuffle(shuffled_days)
+        day_off_map = {}
+        for i, uid in enumerate(full_time_ids):
+            day_off_map[uid] = shuffled_days[i % len(shuffled_days)]
 
-        for i, user in enumerate(working_today):
-            is_part_time = user.id in PART_TIME_IDS
-            start = "10:00"
-            end = "18:00" if is_part_time else "20:00"
-            station = stations_today[i % len(stations_today)]
+        per_user_rotation = {}
+        per_user_pos = {}
+        all_user_ids = full_time_ids + [u.id for u in part_time]
+        for uid in all_user_ids:
+            rotation = list(WORK_STATIONS)
+            rng.shuffle(rotation)
+            per_user_rotation[uid] = rotation
+            per_user_pos[uid] = 0
 
-            schedule = Schedule(
-                user_id=user.id,
-                branch_id=branch_id,
-                day_of_week=day,
-                start_time=start,
-                end_time=end,
-                station=station,
-                is_active=True
-            )
-            db.add(schedule)
-            created += 1
+        week_assignments = {}
 
-        for user in full_time:
-            if day_off_map.get(user.id) == day:
+        for day in range(7):
+            working_full = [u for u in full_time if day_off_map.get(u.id) != day]
+            working_part = [u for u in part_time if day in [0, 6]]
+            working_today = working_full + working_part
+            rng.shuffle(working_today)
+
+            assigned_today = {}
+            unassigned = []
+
+            for user in working_today:
+                rotation = per_user_rotation[user.id]
+                pos = per_user_pos[user.id]
+                station = rotation[pos % len(rotation)]
+
+                if station not in assigned_today.values():
+                    assigned_today[user.id] = station
+                    per_user_pos[user.id] = pos + 1
+                else:
+                    unassigned.append(user)
+
+            if unassigned:
+                taken = set(assigned_today.values())
+                overflow = [s for s in WORK_STATIONS if s not in taken]
+                rng.shuffle(overflow)
+                while len(overflow) < len(unassigned):
+                    extra = list(WORK_STATIONS)
+                    rng.shuffle(extra)
+                    overflow.extend(extra)
+
+                for i, user in enumerate(unassigned):
+                    station = overflow[i % len(overflow)]
+                    assigned_today[user.id] = station
+                    per_user_pos[user.id] += 1
+
+            week_assignments[day] = assigned_today
+
+        for day in range(7):
+            assigned_today = week_assignments[day]
+            working_full = [u for u in full_time if day_off_map.get(u.id) != day]
+            working_part = [u for u in part_time if day in [0, 6]]
+            working_today = working_full + working_part
+
+            for user in working_today:
+                is_part_time = user.id in PART_TIME_IDS
+                start = "10:00"
+                end = "18:00" if is_part_time else "20:00"
+                station = assigned_today.get(user.id, "Arcade Cashier")
                 schedule = Schedule(
                     user_id=user.id,
                     branch_id=branch_id,
                     day_of_week=day,
-                    start_time="10:00",
-                    end_time="20:00",
-                    station="Day Off",
+                    week_number=week_num,
+                    start_time=start,
+                    end_time=end,
+                    station=station,
                     is_active=True
                 )
                 db.add(schedule)
                 created += 1
 
+            for user in full_time:
+                if day_off_map.get(user.id) == day:
+                    schedule = Schedule(
+                        user_id=user.id,
+                        branch_id=branch_id,
+                        day_of_week=day,
+                        week_number=week_num,
+                        start_time="10:00",
+                        end_time="20:00",
+                        station="Day Off",
+                        is_active=True
+                    )
+                    db.add(schedule)
+                    created += 1
+
     db.commit()
-    return {"detail": f"Generated {created} initial schedules", "total": created}
+    return {"detail": f"Generated {created} schedules (4 weeks) for branch {branch_id}", "total": created}

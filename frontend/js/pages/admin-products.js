@@ -1,8 +1,10 @@
 function renderAdminProducts() {
   const app = document.getElementById('app');
+  const user = Auth.getUser();
+  const isAdmin = user && user.role === 'admin';
   let products = [];
   let branches = [];
-  let filterBranch = '';
+  let filterBranch = isAdmin ? String(user.branch_id || '') : '';
   let filterCategory = '';
 
   const categories = ['Tokens', 'Snacks', 'Drinks', 'Merch'];
@@ -11,8 +13,10 @@ function renderAdminProducts() {
     try {
       products = await apiGet('/products');
       if (!Array.isArray(products)) products = [];
-      branches = await apiGet('/branches');
-      if (!Array.isArray(branches)) branches = [];
+      if (!isAdmin) {
+        branches = await apiGet('/branches');
+        if (!Array.isArray(branches)) branches = [];
+      }
       render();
     } catch (e) {
       console.error('Failed to load products:', e);
@@ -36,10 +40,11 @@ function renderAdminProducts() {
       '<div class="page-header">' +
       '<div class="page-header-left">' +
       '<div class="filter-group">' +
+      (isAdmin ? '' :
       '<select id="branch-filter" class="form-control">' +
       '<option value="">All Branches</option>' +
       branches.map(b => '<option value="' + b.id + '"' + (String(b.id) === String(filterBranch) ? ' selected' : '') + '>' + escapeHtml(b.name || '') + '</option>').join('') +
-      '</select>' +
+      '</select>') +
       '<select id="category-filter" class="form-control">' +
       '<option value="">All Categories</option>' +
       categories.map(c => '<option value="' + c + '"' + (filterCategory === c ? ' selected' : '') + '>' + c + '</option>').join('') +
@@ -178,7 +183,7 @@ function renderAdminProducts() {
     const product = products.find(p => String(p.id) === String(id));
     if (!product) return;
     const newActive = product.is_active === false ? true : false;
-    if (!await confirmAsync(newActive ? 'Activate this product?' : 'Deactivate this product?')) return;
+    if (!await confirmAsync(newActive ? 'Activate this product?' : 'Deactivate this product?', newActive ? 'Activate' : 'Deactivate', 'info')) return;
     try {
       await apiPut('/products/' + id, { is_active: newActive });
       Toast.success('Product ' + (newActive ? 'activated' : 'deactivated'));

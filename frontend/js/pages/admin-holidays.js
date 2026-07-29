@@ -106,7 +106,7 @@ function renderAdminEvents() {
     var borderColor = isCurrent ? color + '66' : '#2a3040';
     var shadow = isCurrent ? 'box-shadow:0 0 12px ' + color + '15;' : '';
 
-    var body = '<div style="padding:10px 12px;flex:1;display:flex;flex-direction:column;justify-content:flex-start;">';
+    var body = '<div style="padding:10px 12px;flex:1;display:flex;flex-direction:column;justify-content:flex-start;min-width:0;overflow:hidden;">';
     if (contentItems.length === 0) {
       body += '<div style="color:#475569;font-size:0.75rem;text-align:center;padding:8px 0;">No ' + type + '</div>';
     } else {
@@ -123,7 +123,7 @@ function renderAdminEvents() {
   }
 
   function renderRow(monthIndices, months, monthColors, itemsByMonth, type) {
-    var row = '<div style="display:flex;gap:12px;margin-bottom:12px;align-items:stretch;width:100%;max-width:100%;">';
+    var row = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;">';
     monthIndices.forEach(function(m) {
       row += buildMonthCard(m, months[m], monthColors[m], itemsByMonth[m], type);
     });
@@ -259,24 +259,61 @@ function renderAdminEvents() {
     return rows;
   }
 
+  var DREAMLAND_LOGO_ICON = '<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="dl-ev1" x1="6" y1="6" x2="42" y2="42"><stop stop-color="#a855f7"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs><rect x="2" y="2" width="44" height="44" rx="12" fill="#0a0e1a" stroke="url(#dl-ev1)" stroke-width="1.5"/><path d="M10 18c0-1.2 1-2.2 2.2-2.4l5-.8c1.6-.3 2.8 1 2.8 2.6v12c0 1.6-1.2 2.9-2.8 2.6l-5-.8c-1.2-.2-2.2-1.2-2.2-2.4V18z" stroke="url(#dl-ev1)" stroke-width="1.8" fill="none"/><circle cx="15" cy="19" r="1.5" fill="#a855f7"/><circle cx="19" cy="23" r="1.5" fill="#6366f1"/><path d="M28 18c0-1.2 1-2.2 2.2-2.4l5-.8c1.6-.3 2.8 1 2.8 2.6v12c0 1.6-1.2 2.9-2.8 2.6l-5-.8c-1.2-.2-2.2-1.2-2.2-2.4V18z" stroke="url(#dl-ev1)" stroke-width="1.8" fill="none"/><circle cx="33" cy="19" r="1.5" fill="#a855f7"/><circle cx="37" cy="23" r="1.5" fill="#6366f1"/><path d="M14 15h20" stroke="url(#dl-ev1)" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  var MODAL_LABEL = 'color:#94a3b8;font-size:0.72rem;display:block;margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;';
+  var MODAL_INPUT = 'width:100%;background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:10px 12px;color:#e2e8f0;font-size:0.85rem;outline:none;transition:border 0.2s;box-sizing:border-box;';
+
+  function buildModalHeader(titleText, subtitleText, accentColor) {
+    return '<div style="position:relative;">' +
+      '<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,' + accentColor + ',' + accentColor + '88,' + accentColor + ');"></div>' +
+      '<div style="padding:24px 28px 20px;display:flex;align-items:center;gap:14px;">' +
+        DREAMLAND_LOGO_ICON +
+        '<div><div style="color:#e2e8f0;font-size:1.05rem;font-weight:800;letter-spacing:0.3px;">DREAMLAND ARCADE</div>' +
+        '<div style="color:' + accentColor + ';font-size:0.62rem;text-transform:uppercase;letter-spacing:2px;margin-top:2px;">' + titleText + '</div></div>' +
+      '</div>' +
+      '<div style="height:1px;background:linear-gradient(90deg,transparent,#1e293b,#1e293b,transparent);"></div>' +
+    '</div>';
+  }
+
   function openHolidayModal(holiday) {
     var isEdit = !!holiday;
-    var html = '<form id="holiday-form" style="display:flex;flex-direction:column;gap:12px;">' +
-      '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Holiday Name</label>' +
-      '<input name="name" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;" value="' + (isEdit ? escE(holiday.name) : '') + '" required placeholder="e.g. Independence Day"></div>' +
-      '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Date</label>' +
-      '<input type="date" name="date" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;" value="' + (isEdit ? holiday.date : '') + '" required></div>' +
-      '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Branch (optional)</label>' +
-      '<select name="branch_id" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;">' +
-      '<option value="">All Branches</option></select></div>' +
-      '<div><label style="display:flex;align-items:center;gap:8px;color:#94a3b8;font-size:0.85rem;cursor:pointer;">' +
-      '<input type="checkbox" name="is_recurring"' + (isEdit && holiday.is_recurring ? ' checked' : '') + '> Recurring (every year)</label></div>' +
-      '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
-        '<button type="button" onclick="Modal.close()" style="padding:8px 20px;border:1px solid #30363d;border-radius:6px;background:transparent;color:#94a3b8;cursor:pointer;">Cancel</button>' +
-        '<button type="submit" style="padding:8px 20px;border:none;border-radius:6px;background:#6366f1;color:#fff;font-weight:600;cursor:pointer;">' + (isEdit ? 'Update' : 'Add') + '</button>' +
-      '</div></form>';
+    var accentColor = isEdit ? '#f59e0b' : '#6366f1';
+    var accentGradient = isEdit ? 'linear-gradient(135deg,#f59e0b,#f97316)' : 'linear-gradient(135deg,#6366f1,#818cf8)';
 
-    Modal.show(isEdit ? 'Edit Holiday' : 'Add Holiday', html, { width: '420px' });
+    var html = '' +
+      '<div style="background:linear-gradient(135deg,#060a14,#0a0e1a,#0c1222);border:1px solid #1e293b;border-radius:16px;overflow:hidden;">' +
+        buildModalHeader(isEdit ? 'Edit Holiday' : 'New Holiday', '', accentColor) +
+
+        '<form id="holiday-form" style="padding:20px 28px 24px;">' +
+          '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:18px;margin-bottom:16px;">' +
+            '<div style="color:' + accentColor + ';font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;display:flex;align-items:center;gap:6px;">' +
+              '<svg width="14" height="14" fill="none" stroke="' + accentColor + '" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>' +
+              ' Holiday Details</div>' +
+            '<div style="display:flex;flex-direction:column;gap:14px;">' +
+              '<div><label style="' + MODAL_LABEL + '">Holiday Name</label>' +
+              '<input name="name" style="' + MODAL_INPUT + '" value="' + (isEdit ? escE(holiday.name) : '') + '" required placeholder="e.g. Independence Day" onfocus="this.style.borderColor=\'' + accentColor + '\'" onblur="this.style.borderColor=\'#30363d\'"></div>' +
+              '<div><label style="' + MODAL_LABEL + '">Date</label>' +
+              '<input type="date" name="date" style="' + MODAL_INPUT + '" value="' + (isEdit ? holiday.date : '') + '" required onfocus="this.style.borderColor=\'' + accentColor + '\'" onblur="this.style.borderColor=\'#30363d\'"></div>' +
+              '<div><label style="' + MODAL_LABEL + '">Branch (optional)</label>' +
+              '<select name="branch_id" style="' + MODAL_INPUT + '" onfocus="this.style.borderColor=\'' + accentColor + '\'" onblur="this.style.borderColor=\'#30363d\'">' +
+              '<option value="">All Branches</option></select></div>' +
+              '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 14px;background:#0d1117;border:1px solid #1e293b;border-radius:8px;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'' + accentColor + '44\';this.style.background=\'' + accentColor + '08\'" onmouseleave="this.style.borderColor=\'#1e293b\';this.style.background=\'#0d1117\'">' +
+                '<input type="checkbox" name="is_recurring"' + (isEdit && holiday.is_recurring ? ' checked' : '') + ' style="accent-color:' + accentColor + ';width:16px;height:16px;">' +
+                '<span style="color:#94a3b8;font-size:0.82rem;">Recurring (every year)</span>' +
+              '</label>' +
+            '</div>' +
+          '</div>' +
+
+          '<div style="display:flex;gap:10px;">' +
+            '<button type="button" onclick="Modal.close()" style="flex:1;padding:11px;border:1px solid #30363d;border-radius:8px;background:#0d1117;color:#94a3b8;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'#ef4444\';this.style.color=\'#fca5a5\'" onmouseleave="this.style.borderColor=\'#30363d\';this.style.color=\'#94a3b8\'">Cancel</button>' +
+            '<button type="submit" style="flex:2;padding:11px;border:none;border-radius:8px;background:' + accentGradient + ';color:#fff;font-weight:700;cursor:pointer;box-shadow:0 2px 10px ' + accentColor + '30;">' +
+              (isEdit ? 'Update Holiday' : 'Add Holiday') +
+            '</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>';
+
+    Modal.show('', html, { width: '480px' });
 
     document.getElementById('holiday-form')?.addEventListener('submit', async function(e) {
       e.preventDefault();
@@ -299,43 +336,77 @@ function renderAdminEvents() {
     }
 
     var selectedIcon = (isEdit ? (event.icon || '🎉') : '🎉');
+    var accentColor = isEdit ? '#f59e0b' : '#22c55e';
+    var accentGradient = isEdit ? 'linear-gradient(135deg,#f59e0b,#f97316)' : 'linear-gradient(135deg,#22c55e,#4ade80)';
 
-    var gridHtml = '<div id="emoji-grid" style="display:grid;grid-template-columns:repeat(10,1fr);gap:4px;max-height:160px;overflow-y:auto;padding:4px;border:1px solid #30363d;border-radius:8px;background:#0d1117;">';
+    var gridHtml = '<div id="emoji-grid" style="display:grid;grid-template-columns:repeat(10,1fr);gap:4px;max-height:140px;overflow-y:auto;padding:6px;border:1px solid #1e293b;border-radius:8px;background:#0d1117;">';
     emojiOptions.forEach(function(em) {
       var isActive = em === selectedIcon;
-      gridHtml += '<div class="emoji-pick" data-em="' + escE(em) + '" style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:1.1rem;border-radius:6px;cursor:pointer;border:1px solid ' + (isActive ? '#6366f1' : 'transparent') + ';background:' + (isActive ? '#6366f122' : 'transparent') + ';">' + em + '</div>';
+      gridHtml += '<div class="emoji-pick" data-em="' + escE(em) + '" style="width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:1.05rem;border-radius:6px;cursor:pointer;border:1px solid ' + (isActive ? '#6366f1' : 'transparent') + ';background:' + (isActive ? '#6366f122' : 'transparent') + ';transition:all 0.15s;" onmouseenter="if(!this.classList.contains(\'active\'))this.style.background=\'#ffffff08\'" onmouseleave="if(!this.classList.contains(\'active\'))this.style.background=\'transparent\'">' + em + '</div>';
     });
     gridHtml += '</div>';
 
-    var html = '<form id="event-form" style="display:flex;flex-direction:column;gap:14px;">' +
-      '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Event Name</label>' +
-      '<input name="name" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;" value="' + (isEdit ? escE(event.name) : '') + '" required placeholder="e.g. Summer Arcade Fest"></div>' +
-      '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Date</label>' +
-      '<input type="date" name="date" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;" value="' + dateVal + '" required></div>' +
-      '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Description (optional)</label>' +
-      '<textarea name="description" rows="2" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;resize:vertical;" placeholder="Details...">' + (isEdit ? escE(event.description || '') : '') + '</textarea></div>' +
-      '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Icon</label>' +
-      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">' +
-        '<span id="selected-icon-preview" style="font-size:1.8rem;">' + escE(selectedIcon) + '</span>' +
-        '<span style="color:#666;font-size:0.75rem;">Click an icon below</span>' +
-      '</div>' + gridHtml + '</div>' +
-      '<input type="hidden" name="icon" value="' + escE(selectedIcon) + '">' +
-      '<div><label style="color:#94a3b8;font-size:0.8rem;display:block;margin-bottom:4px;">Branch (optional)</label>' +
-      '<select name="branch_id" style="width:100%;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;color:#e2e8f0;">' +
-      '<option value="">All Branches</option></select></div>' +
-      '<div style="display:flex;gap:10px;justify-content:flex-end;">' +
-        '<button type="button" onclick="Modal.close()" style="padding:8px 20px;border:1px solid #30363d;border-radius:6px;background:transparent;color:#94a3b8;cursor:pointer;">Cancel</button>' +
-        '<button type="submit" style="padding:8px 20px;border:none;border-radius:6px;background:#22c55e;color:#fff;font-weight:600;cursor:pointer;">' + (isEdit ? 'Update' : 'Add Event') + '</button>' +
-      '</div></form>';
+    var html = '' +
+      '<div style="background:linear-gradient(135deg,#060a14,#0a0e1a,#0c1222);border:1px solid #1e293b;border-radius:16px;overflow:hidden;">' +
+        buildModalHeader(isEdit ? 'Edit Special Event' : 'New Special Event', '', accentColor) +
 
-    Modal.show(isEdit ? 'Edit Event' : 'Add Special Event', html, { width: '480px' });
+        '<form id="event-form" style="padding:20px 28px 24px;">' +
+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">' +
+
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:18px;">' +
+              '<div style="color:' + accentColor + ';font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;display:flex;align-items:center;gap:6px;">' +
+                '<svg width="14" height="14" fill="none" stroke="' + accentColor + '" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
+                ' Event Details</div>' +
+              '<div style="display:flex;flex-direction:column;gap:12px;">' +
+                '<div><label style="' + MODAL_LABEL + '">Event Name</label>' +
+                '<input name="name" style="' + MODAL_INPUT + '" value="' + (isEdit ? escE(event.name) : '') + '" required placeholder="e.g. Summer Arcade Fest" onfocus="this.style.borderColor=\'' + accentColor + '\'" onblur="this.style.borderColor=\'#30363d\'"></div>' +
+                '<div><label style="' + MODAL_LABEL + '">Date</label>' +
+                '<input type="date" name="date" style="' + MODAL_INPUT + '" value="' + dateVal + '" required onfocus="this.style.borderColor=\'' + accentColor + '\'" onblur="this.style.borderColor=\'#30363d\'"></div>' +
+                '<div><label style="' + MODAL_LABEL + '">Description (optional)</label>' +
+                '<textarea name="description" rows="3" style="' + MODAL_INPUT + 'resize:vertical;" placeholder="Details about the event..." onfocus="this.style.borderColor=\'' + accentColor + '\'" onblur="this.style.borderColor=\'#30363d\'">' + (isEdit ? escE(event.description || '') : '') + '</textarea></div>' +
+                '<div><label style="' + MODAL_LABEL + '">Branch (optional)</label>' +
+                '<select name="branch_id" style="' + MODAL_INPUT + '" onfocus="this.style.borderColor=\'' + accentColor + '\'" onblur="this.style.borderColor=\'#30363d\'">' +
+                '<option value="">All Branches</option></select></div>' +
+              '</div>' +
+            '</div>' +
+
+            '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:18px;display:flex;flex-direction:column;">' +
+              '<div style="color:' + accentColor + ';font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:14px;display:flex;align-items:center;gap:6px;">' +
+                '<svg width="14" height="14" fill="none" stroke="' + accentColor + '" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
+                ' Event Icon</div>' +
+              '<div style="margin-bottom:12px;padding:16px;background:linear-gradient(135deg,' + accentColor + '08,transparent);border:1px solid ' + accentColor + '15;border-radius:10px;text-align:center;">' +
+                '<div id="selected-icon-preview" style="font-size:2.8rem;line-height:1;">' + escE(selectedIcon) + '</div>' +
+                '<div style="color:#64748b;font-size:0.65rem;margin-top:6px;">Selected Icon</div>' +
+              '</div>' +
+              '<div style="flex:1;min-height:0;">' + gridHtml + '</div>' +
+              '<input type="hidden" name="icon" value="' + escE(selectedIcon) + '">' +
+            '</div>' +
+
+          '</div>' +
+
+          '<div style="display:flex;gap:10px;">' +
+            '<button type="button" onclick="Modal.close()" style="flex:1;padding:11px;border:1px solid #30363d;border-radius:8px;background:#0d1117;color:#94a3b8;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'#ef4444\';this.style.color=\'#fca5a5\'" onmouseleave="this.style.borderColor=\'#30363d\';this.style.color=\'#94a3b8\'">Cancel</button>' +
+            '<button type="submit" style="flex:2;padding:11px;border:none;border-radius:8px;background:' + accentGradient + ';color:#fff;font-weight:700;cursor:pointer;box-shadow:0 2px 10px ' + accentColor + '30;">' +
+              (isEdit ? 'Update Event' : 'Add Special Event') +
+            '</button>' +
+          '</div>' +
+        '</form>' +
+      '</div>';
+
+    Modal.show('', html, { width: '680px' });
 
     document.querySelectorAll('.emoji-pick').forEach(function(el) {
       el.addEventListener('click', function() {
         selectedIcon = el.dataset.em;
-        document.querySelectorAll('.emoji-pick').forEach(function(x) { x.style.borderColor = 'transparent'; x.style.background = 'transparent'; });
+        document.querySelectorAll('.emoji-pick').forEach(function(x) {
+          x.style.borderColor = 'transparent';
+          x.style.background = 'transparent';
+          x.classList.remove('active');
+        });
         el.style.borderColor = '#6366f1';
         el.style.background = '#6366f122';
+        el.classList.add('active');
         var preview = document.getElementById('selected-icon-preview');
         if (preview) preview.textContent = selectedIcon;
         var iconInput = document.querySelector('#event-form input[name="icon"]');

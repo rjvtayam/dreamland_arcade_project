@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List
 
 from database import get_db
@@ -13,6 +14,9 @@ router = APIRouter(prefix="/api/branches", tags=["branches"])
 
 @router.get("")
 def list_branches(db: Session = Depends(get_db)):
+    db.execute(text("SET app.current_branch_id = '0'"))
+    db.execute(text("SET app.current_user_role = 'owner'"))
+
     branches = db.query(Branch).filter(Branch.is_active == True).order_by(Branch.name).all()
     result = []
     for b in branches:

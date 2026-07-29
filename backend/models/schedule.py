@@ -11,6 +11,7 @@ class Schedule(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     branch_id = Column(Integer, ForeignKey("branches.id"), nullable=False)
     day_of_week = Column(Integer, nullable=False)
+    week_number = Column(Integer, nullable=False, default=0)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
     station = Column(Text, nullable=True)

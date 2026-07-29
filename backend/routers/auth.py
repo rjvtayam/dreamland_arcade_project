@@ -36,5 +36,6 @@ def get_me(current_user: User = Depends(get_current_user), db: Session = Depends
         "role": current_user.role,
         "branch_id": current_user.branch_id,
         "branch_name": branch_name,
-        "is_active": current_user.is_active
+        "is_active": current_user.is_active,
+        "employment_type": current_user.employment_type
     }

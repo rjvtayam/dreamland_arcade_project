@@ -80,6 +80,7 @@ def list_dayoffs(
             "id": r.id,
             "user_id": r.user_id,
             "user_name": f"{user.first_name} {user.last_name}" if user else None,
+            "branch_id": r.branch_id,
             "branch_name": branch.name if branch else None,
             "date": r.date.isoformat(),
             "reason": r.reason,
@@ -129,3 +130,26 @@ def reject_dayoff(
     request.reviewed_at = datetime.now(timezone.utc)
     db.commit()
     return {"detail": "Request rejected"}
+
+
+@router.put("/{request_id}/status")
+def update_dayoff_status(
+    request_id: int,
+    data: DayoffReview,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    request = db.query(DayoffRequest).filter(DayoffRequest.id == request_id).first()
+    if not request:
+        raise HTTPException(status_code=404, detail="Request not found")
+    if current_user.role != "owner" and request.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Admins can only review requests for their own branch")
+    if request.status != "pending":
+        raise HTTPException(status_code=400, detail="Request already reviewed")
+    if data.status not in ("approved", "rejected"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+    request.status = data.status
+    request.reviewed_by = current_user.id
+    request.reviewed_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"detail": f"Request {data.status}"}

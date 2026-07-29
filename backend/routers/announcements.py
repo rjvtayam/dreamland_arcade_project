@@ -32,7 +32,8 @@ def my_announcements(db: Session = Depends(get_db), current_user: User = Depends
             "branch_name": branch.name if branch else "All Branches",
             "priority": a.priority,
             "created_at": a.created_at.isoformat() if a.created_at else None,
-            "creator_name": f"{creator.first_name} {creator.last_name}" if creator else None
+            "creator_name": f"{creator.first_name} {creator.last_name}" if creator else None,
+            "creator_role": creator.role if creator else None
         })
     return result
 
@@ -70,7 +71,9 @@ def list_announcements(
             "priority": a.priority,
             "is_active": a.is_active,
             "created_at": a.created_at.isoformat() if a.created_at else None,
-            "creator_name": f"{creator.first_name} {creator.last_name}" if creator else None
+            "created_by": a.created_by,
+            "creator_name": f"{creator.first_name} {creator.last_name}" if creator else None,
+            "creator_role": creator.role if creator else None
         })
     return result
 
@@ -81,8 +84,11 @@ def create_announcement(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
-    if current_user.role != "owner" and data.branch_id and data.branch_id != current_user.branch_id:
-        raise HTTPException(status_code=403, detail="Admins can only create announcements for their own branch")
+    if current_user.role == "admin":
+        admin_branch = current_user.branch_id
+        if data.branch_id and data.branch_id != admin_branch:
+            raise HTTPException(status_code=403, detail="Admins can only post announcements to their own branch")
+        data.branch_id = admin_branch
 
     announcement = Announcement(
         title=data.title,
@@ -93,8 +99,8 @@ def create_announcement(
     )
     db.add(announcement)
     db.commit()
-    db.refresh(announcement)
-    return {"id": announcement.id, "detail": "Announcement created"}
+    ann_id = announcement.id
+    return {"id": ann_id, "detail": "Announcement created"}
 
 
 @router.put("/{announcement_id}")
@@ -107,8 +113,11 @@ def update_announcement(
     announcement = db.query(Announcement).filter(Announcement.id == announcement_id).first()
     if not announcement:
         raise HTTPException(status_code=404, detail="Announcement not found")
-    if current_user.role != "owner" and announcement.branch_id and announcement.branch_id != current_user.branch_id:
-        raise HTTPException(status_code=403, detail="Admins can only update announcements for their own branch")
+    if current_user.role == "admin":
+        if announcement.branch_id != current_user.branch_id:
+            raise HTTPException(status_code=403, detail="Admins can only edit announcements for their own branch")
+        if announcement.created_by != current_user.id:
+            raise HTTPException(status_code=403, detail="Admins can only edit their own announcements")
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(announcement, key, value)
     db.commit()

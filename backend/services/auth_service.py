@@ -1,5 +1,6 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from datetime import datetime, timezone
 
 from models.user import User
@@ -18,6 +19,9 @@ def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
 
 
 def authenticate_user(db: Session, pin: str, branch_id: int = None):
+    db.execute(text("SET app.current_branch_id = '0'"))
+    db.execute(text("SET app.current_user_role = 'owner'"))
+
     users = db.query(User).filter(User.is_active == True).all()
     matched = []
     for user in users:

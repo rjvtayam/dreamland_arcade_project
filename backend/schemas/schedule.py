@@ -8,6 +8,7 @@ class ScheduleBase(BaseModel):
     user_id: int
     branch_id: int
     day_of_week: int
+    week_number: int = 0
     start_time: str
     end_time: str
     station: Optional[str] = None
@@ -21,6 +22,7 @@ class ScheduleUpdate(BaseModel):
     user_id: Optional[int] = None
     branch_id: Optional[int] = None
     day_of_week: Optional[int] = None
+    week_number: Optional[int] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     station: Optional[str] = None

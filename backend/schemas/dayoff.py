@@ -24,6 +24,7 @@ class DayoffResponse(BaseModel):
     date: date
     reason: Optional[str]
     status: str
+    request_type: Optional[str] = 'day-off'
     reviewed_by: Optional[int]
     reviewed_at: Optional[datetime]
     created_at: datetime

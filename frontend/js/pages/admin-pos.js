@@ -391,6 +391,7 @@ function renderAdminPOS() {
     if (smashPriceInput) smashPriceInput.addEventListener('change', function(e) { smashPrice = parseInt(e.target.value) || 0; });
     if (extraQtyInput) extraQtyInput.addEventListener('change', function(e) { extraQty = parseInt(e.target.value) || 0; });
     if (extraPriceInput) extraPriceInput.addEventListener('change', function(e) { extraPrice = parseInt(e.target.value) || 0; });
+
   }
 
   function renderEditModal(productId) {
@@ -554,7 +555,7 @@ function renderAdminPOS() {
   async function completeSale() {
     if (cart.length === 0) { Toast.error('Cart is empty'); return; }
     var total = getCartTotal();
-    if (!await confirmAsync('Complete sale for ' + formatCurrency(total) + '?', 'Complete Sale')) return;
+    if (!await confirmAsync('Complete sale for ' + formatCurrency(total) + '?', 'Complete Sale', 'success')) return;
 
     var areaTotals = {};
     cart.forEach(function(item) {

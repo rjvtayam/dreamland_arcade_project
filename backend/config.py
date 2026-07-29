@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = os.getenv(
         "DATABASE_URL",
-        "postgresql://postgres:postgre021600@localhost:5432/dreamland_arcade"
+        "postgresql://dreamland_app:dl_app_2026@localhost:5432/dreamland_arcade"
     )
 
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "dreamland-arcade-secret-key-change-in-production")

@@ -18,7 +18,8 @@ router = APIRouter(prefix="/api/payslips", tags=["payslips"])
 @router.get("/my")
 def my_payslips(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     payslips = db.query(Payslip).filter(
-        Payslip.user_id == current_user.id
+        Payslip.user_id == current_user.id,
+        Payslip.is_archived == False
     ).order_by(Payslip.period_start.desc()).all()
     result = []
     for p in payslips:
@@ -49,10 +50,12 @@ def list_payslips(
     branch_id: Optional[int] = None,
     user_id: Optional[int] = None,
     status: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 10,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
-    query = db.query(Payslip)
+    query = db.query(Payslip).filter(Payslip.is_archived == False)
 
     if current_user.role == "owner":
         if branch_id:
@@ -68,7 +71,8 @@ def list_payslips(
     if status:
         query = query.filter(Payslip.status == status)
 
-    payslips = query.order_by(Payslip.period_start.desc()).all()
+    total = query.count()
+    payslips = query.order_by(Payslip.period_start.desc()).offset((page - 1) * page_size).limit(page_size).all()
     result = []
     for p in payslips:
         user = db.query(User).filter(User.id == p.user_id).first()
@@ -94,7 +98,7 @@ def list_payslips(
             "creator_name": f"{creator.first_name} {creator.last_name}" if creator else None,
             "created_at": p.created_at.isoformat() if p.created_at else None
         })
-    return result
+    return {"items": result, "total": total, "page": page, "page_size": page_size}
 
 
 @router.post("/calculate")
@@ -244,3 +248,67 @@ def delete_payslip(
     db.delete(payslip)
     db.commit()
     return {"detail": "Payslip deleted"}
+
+
+@router.get("/history")
+def list_payslips_history(
+    branch_id: Optional[int] = None,
+    page: int = 1,
+    page_size: int = 10,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    query = db.query(Payslip).filter(Payslip.is_archived == True)
+
+    if current_user.role == "owner":
+        if branch_id:
+            query = query.filter(Payslip.branch_id == branch_id)
+    elif current_user.role == "admin":
+        query = query.filter(Payslip.branch_id == current_user.branch_id)
+
+    total = query.count()
+    payslips = query.order_by(Payslip.archived_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    result = []
+    for p in payslips:
+        user = db.query(User).filter(User.id == p.user_id).first()
+        branch = db.query(Branch).filter(Branch.id == p.branch_id).first()
+        result.append({
+            "id": p.id,
+            "user_id": p.user_id,
+            "user_name": f"{user.first_name} {user.last_name}" if user else None,
+            "branch_id": p.branch_id,
+            "branch_name": branch.name if branch else None,
+            "period_start": p.period_start.isoformat(),
+            "period_end": p.period_end.isoformat(),
+            "base_pay": float(p.base_pay),
+            "overtime_pay": float(p.overtime_pay),
+            "bonuses": float(p.bonuses),
+            "deductions": float(p.deductions),
+            "total_pay": float(p.total_pay),
+            "hours_worked": float(p.hours_worked),
+            "overtime_hours": float(p.overtime_hours),
+            "notes": p.notes,
+            "status": p.status,
+            "archived_at": p.archived_at.isoformat() if p.archived_at else None
+        })
+    return {"items": result, "total": total, "page": page, "page_size": page_size}
+
+
+@router.post("/archive-month")
+def archive_month(
+    branch_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner"))
+):
+    query = db.query(Payslip).filter(Payslip.is_archived == False)
+    if branch_id:
+        query = query.filter(Payslip.branch_id == branch_id)
+    payslips = query.all()
+    count = 0
+    now = datetime.utcnow()
+    for p in payslips:
+        p.is_archived = True
+        p.archived_at = now
+        count += 1
+    db.commit()
+    return {"detail": f"Archived {count} payslip(s)", "archived_count": count}

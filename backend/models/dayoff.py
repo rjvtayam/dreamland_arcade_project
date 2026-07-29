@@ -13,6 +13,7 @@ class DayoffRequest(Base):
     date = Column(Date, nullable=False)
     reason = Column(Text)
     status = Column(String(20), default="pending")
+    request_type = Column(String(20), default="day-off")
     reviewed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

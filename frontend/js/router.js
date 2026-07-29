@@ -37,6 +37,11 @@ const Router = {
             renderFn(hash);
             if (routeKey !== 'pos-terminal') {
                 this.updateActiveNav(routeKey);
+                setTimeout(() => {
+                    if (typeof NotificationCenter !== 'undefined') {
+                        NotificationCenter.init();
+                    }
+                }, 100);
             }
         } else {
             this.navigate('dashboard');
@@ -50,6 +55,10 @@ const Router = {
             if (href && href === `#${routeKey}`) {
                 link.classList.add('active');
             }
+        });
+        document.querySelectorAll('.sidebar-section').forEach(section => {
+            const hasActive = section.querySelector('.sidebar-nav-link.active');
+            if (hasActive) section.classList.add('open');
         });
     }
 };

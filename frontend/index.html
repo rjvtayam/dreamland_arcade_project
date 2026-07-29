@@ -9,7 +9,10 @@
     <link rel="stylesheet" href="/css/components.css">
     <link rel="stylesheet" href="/css/login.css?v=11">
     <link rel="stylesheet" href="/css/dashboard.css">
+    <link rel="stylesheet" href="/css/notifications.css">
+    <link rel="stylesheet" href="/css/confirm-dialog.css">
     <link rel="stylesheet" href="/css/landing.css?v=2">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
         .sidebar-nav-link {
             display: flex;
@@ -35,6 +38,44 @@
         }
         .sidebar-nav-link svg {
             flex-shrink: 0;
+        }
+        .sidebar-section {
+            margin-bottom: 2px;
+        }
+        .sidebar-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 20px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 150ms ease;
+        }
+        .sidebar-section-header:hover {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .sidebar-section-title {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #555577;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+        .sidebar-section-arrow {
+            color: #555577;
+            transition: transform 200ms ease;
+            flex-shrink: 0;
+        }
+        .sidebar-section.open .sidebar-section-arrow {
+            transform: rotate(180deg);
+        }
+        .sidebar-section-links {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 250ms ease;
+        }
+        .sidebar-section.open .sidebar-section-links {
+            max-height: 600px;
         }
         .sidebar-nav-section {
             margin-bottom: 1.5rem;
@@ -181,34 +222,36 @@
 <body>
     <div id="app"></div>
 
-    <script src="/js/config.js?v=10"></script>
-    <script src="/js/auth.js?v=10"></script>
-    <script src="/js/api.js?v=11"></script>
-    <script src="/js/utils.js?v=11"></script>
-    <script src="/js/components/toast.js?v=10"></script>
-    <script src="/js/components/modal.js?v=10"></script>
-    <script src="/js/components/table.js?v=10"></script>
-    <script src="/js/components/sidebar.js?v=14"></script>
-    <script src="/js/components/navbar.js?v=12"></script>
-    <script src="/js/router.js?v=11"></script>
+    <script src="/js/config.js?v=11"></script>
+    <script src="/js/auth.js?v=11"></script>
+    <script src="/js/api.js?v=12"></script>
+    <script src="/js/utils.js?v=12"></script>
+    <script src="/js/components/toast.js?v=11"></script>
+    <script src="/js/components/modal.js?v=11"></script>
+    <script src="/js/components/confirm-dialog.js?v=2"></script>
+    <script src="/js/components/table.js?v=11"></script>
+    <script src="/js/components/sidebar.js?v=15"></script>
+    <script src="/js/components/navbar.js?v=15"></script>
+    <script src="/js/components/notifications.js?v=2"></script>
+    <script src="/js/router.js?v=12"></script>
     <script src="/js/pages/landing.js?v=2"></script>
     <script src="/js/pages/login.js?v=10"></script>
-    <script src="/js/pages/admin-dashboard.js?v=11"></script>
-    <script src="/js/pages/employee-dashboard.js?v=10"></script>
+    <script src="/js/pages/admin-dashboard.js?v=17"></script>
+    <script src="/js/pages/employee-dashboard.js?v=11"></script>
     <script src="/js/pages/admin-branches.js?v=10"></script>
     <script src="/js/pages/admin-users.js?v=12"></script>
-    <script src="/js/pages/admin-attendance.js?v=10"></script>
+    <script src="/js/pages/admin-attendance.js?v=11"></script>
     <script src="/js/pages/admin-schedules.js?v=12"></script>
-    <script src="/js/pages/admin-dayoffs.js?v=10"></script>
+    <script src="/js/pages/admin-dayoffs.js?v=12"></script>
     <script src="/js/pages/admin-holidays.js?v=26"></script>
-    <script src="/js/pages/admin-inventory.js?v=10"></script>
-    <script src="/js/pages/admin-products.js?v=10"></script>
+    <script src="/js/pages/admin-inventory.js?v=11"></script>
+    <script src="/js/pages/admin-products.js?v=11"></script>
     <script src="/js/pages/admin-pos.js?v=13"></script>
     <script src="/js/pages/admin-loyalty.js?v=1"></script>
     <script src="/js/pages/pos-login.js?v=1"></script>
-    <script src="/js/pages/pos-terminal.js?v=3"></script>
-    <script src="/js/pages/admin-pos-reports.js?v=1"></script>
-    <script src="/js/pages/admin-tracking.js?v=1"></script>
+    <script src="/js/pages/pos-terminal.js?v=4"></script>
+    <script src="/js/pages/admin-pos-reports.js?v=8"></script>
+    <script src="/js/pages/admin-tracking.js?v=9"></script>
     <script src="/js/pages/admin-reports.js?v=11"></script>
     <script src="/js/pages/admin-payslips.js?v=14"></script>
     <script src="/js/pages/admin-announcements.js?v=10"></script>
@@ -217,6 +260,8 @@
     <script src="/js/pages/employee-dayoffs.js?v=10"></script>
     <script src="/js/pages/employee-payslips.js?v=10"></script>
     <script src="/js/pages/employee-announcements.js?v=10"></script>
+    <script src="/js/pages/admin-messages.js?v=1"></script>
+    <script src="/js/pages/admin-proposals.js?v=1"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             Router.init();

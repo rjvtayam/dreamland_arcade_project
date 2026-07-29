@@ -1,0 +1,143 @@
+.cd-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(8px);
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: cdFadeIn 0.2s ease;
+    transition: opacity 0.2s ease;
+}
+.cd-overlay.closing {
+    opacity: 0;
+}
+@keyframes cdFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.cd-card {
+    position: relative;
+    background: rgba(15, 15, 35, 0.95);
+    border: 1px solid var(--cd-border, rgba(239, 68, 68, 0.3));
+    border-radius: 16px;
+    padding: 32px;
+    width: 380px;
+    max-width: 90vw;
+    text-align: center;
+    box-shadow:
+        0 0 30px var(--cd-glow, rgba(239, 68, 68, 0.15)),
+        0 20px 60px rgba(0, 0, 0, 0.5);
+    animation: cdSlideIn 0.25s ease;
+    overflow: hidden;
+}
+.cd-overlay.closing .cd-card {
+    animation: cdSlideOut 0.15s ease forwards;
+}
+
+@keyframes cdSlideIn {
+    from { transform: scale(0.9) translateY(20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes cdSlideOut {
+    from { transform: scale(1) translateY(0); opacity: 1; }
+    to { transform: scale(0.9) translateY(20px); opacity: 0; }
+}
+
+.cd-glow-ring {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--cd-glow, rgba(239, 68, 68, 0.2)), transparent 70%);
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.cd-icon-wrap {
+    position: relative;
+    display: inline-flex;
+    margin-bottom: 16px;
+}
+.cd-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--cd-bg, rgba(239, 68, 68, 0.08));
+    border: 2px solid var(--cd-border, rgba(239, 68, 68, 0.3));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: cdPulse 2s ease-in-out infinite;
+}
+@keyframes cdPulse {
+    0%, 100% { box-shadow: 0 0 0 0 var(--cd-glow); }
+    50% { box-shadow: 0 0 20px 4px var(--cd-glow); }
+}
+
+.cd-title {
+    color: #e2e8f0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    font-family: var(--font-heading, 'Rajdhani', sans-serif);
+    letter-spacing: 0.3px;
+}
+
+.cd-message {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin-bottom: 28px;
+    padding: 0 8px;
+}
+
+.cd-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.cd-btn {
+    flex: 1;
+    padding: 11px 20px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    letter-spacing: 0.3px;
+}
+
+.cd-btn-cancel {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(51, 65, 85, 0.5);
+    color: #94a3b8;
+}
+.cd-btn-cancel:hover {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: rgba(100, 116, 139, 0.5);
+    color: #e2e8f0;
+}
+
+.cd-btn-confirm {
+    background: linear-gradient(135deg, var(--cd-accent, #ef4444), color-mix(in srgb, var(--cd-accent, #ef4444) 80%, black));
+    border: none;
+    color: #fff;
+    box-shadow: 0 4px 15px var(--cd-glow, rgba(239, 68, 68, 0.3));
+}
+.cd-btn-confirm:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px var(--cd-glow, rgba(239, 68, 68, 0.4));
+}
+.cd-btn-confirm:active {
+    transform: translateY(0);
+}

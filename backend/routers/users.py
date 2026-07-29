@@ -61,7 +61,7 @@ def create_user(
         raise HTTPException(status_code=403, detail="Admins can only create users in their own branch")
 
     if current_user.role != "owner" and data.role in ("owner", "admin"):
-        raise HTTPException(status_code=403, detail="Only owner can assign owner roles")
+        raise HTTPException(status_code=403, detail="Only owner can create admin accounts")
 
     existing = db.query(User).filter(User.pin_hash == hash_pin(data.pin)).first()
     if existing:
@@ -102,8 +102,8 @@ def update_user(
 
     update_data = data.model_dump(exclude_unset=True)
     if "role" in update_data and current_user.role != "owner":
-        if update_data["role"] in ("owner",):
-            raise HTTPException(status_code=403, detail="Only owner can assign owner role")
+        if update_data["role"] in ("owner", "admin"):
+            raise HTTPException(status_code=403, detail="Only owner can assign admin or owner roles")
 
     for key, value in update_data.items():
         setattr(user, key, value)

@@ -136,3 +136,13 @@ input, select, textarea, button {
 .p-2 { padding: 1rem; }
 .p-3 { padding: 1.5rem; }
 .p-4 { padding: 2rem; }
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+@keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 6px rgba(99,102,241,0.4); }
+    50% { box-shadow: 0 0 12px rgba(99,102,241,0.7); }
+}

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func as sql_func
+from sqlalchemy import func as sql_func, desc
 from typing import Optional
+from datetime import datetime, timezone
 import random
 import string
 
@@ -63,6 +64,8 @@ def build_response(m, db):
         "issued_date": m.issued_date.isoformat() if m.issued_date else None,
         "expiry_date": m.expiry_date.isoformat() if m.expiry_date else None,
         "is_active": m.is_active,
+        "is_deleted": getattr(m, "is_deleted", False),
+        "deleted_at": m.deleted_at.isoformat() if getattr(m, "deleted_at", None) else None,
         "created_at": m.created_at.isoformat() if m.created_at else None,
         "next_tier": nt,
         "points_to_next_tier": ptnt
@@ -74,6 +77,7 @@ def list_members(
     branch_id: Optional[int] = None,
     tier: Optional[str] = None,
     search: Optional[str] = None,
+    show_deleted: Optional[bool] = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
@@ -81,6 +85,8 @@ def list_members(
         branch_id = current_user.branch_id
 
     query = db.query(Member)
+    if not show_deleted:
+        query = query.filter((Member.is_deleted == False) | (Member.is_deleted == None))
     if branch_id:
         query = query.filter(Member.branch_id == branch_id)
     if tier:
@@ -244,7 +250,7 @@ def member_stats(
     if current_user.role != "owner":
         branch_id = current_user.branch_id
 
-    query = db.query(Member)
+    query = db.query(Member).filter((Member.is_deleted == False) | (Member.is_deleted == None))
     if branch_id:
         query = query.filter(Member.branch_id == branch_id)
 
@@ -256,10 +262,19 @@ def member_stats(
 
     total_spent = db.query(
         sql_func.coalesce(sql_func.sum(Member.total_spent), 0)
-    )
+    ).filter((Member.is_deleted == False) | (Member.is_deleted == None))
     if branch_id:
         total_spent = total_spent.filter(Member.branch_id == branch_id)
     total_spent = total_spent.scalar()
+
+    trash_count = db.query(Member).filter(Member.is_deleted == True)
+    if branch_id:
+        trash_count = trash_count.filter(Member.branch_id == branch_id)
+
+    history_count = db.query(MemberTransaction).join(Member, MemberTransaction.member_id == Member.id)
+    history_count = history_count.filter((Member.is_deleted == False) | (Member.is_deleted == None))
+    if branch_id:
+        history_count = history_count.filter(MemberTransaction.branch_id == branch_id)
 
     return {
         "total_members": total,
@@ -267,5 +282,120 @@ def member_stats(
         "silver": silver,
         "gold": gold,
         "black": black,
-        "total_spent": float(total_spent)
+        "total_spent": float(total_spent),
+        "trash_count": trash_count.count(),
+        "history_count": history_count.count()
     }
+
+
+@router.get("/history/all")
+def all_transaction_history(
+    branch_id: Optional[int] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
+    query = db.query(MemberTransaction).join(Member, MemberTransaction.member_id == Member.id)
+    query = query.filter((Member.is_deleted == False) | (Member.is_deleted == None))
+    if branch_id:
+        query = query.filter(MemberTransaction.branch_id == branch_id)
+    if search:
+        q = f"%{search}%"
+        query = query.filter(
+            (Member.first_name.ilike(q)) | (Member.last_name.ilike(q)) | (Member.card_number.ilike(q))
+        )
+
+    txns = query.order_by(MemberTransaction.created_at.desc()).limit(200).all()
+
+    return [{
+        "id": t.id,
+        "member_id": t.member_id,
+        "member_name": t.member.first_name + " " + t.member.last_name if t.member else None,
+        "card_number": t.member.card_number if t.member else None,
+        "card_tier": t.member.card_tier if t.member else None,
+        "branch_id": t.branch_id,
+        "amount": float(t.amount or 0),
+        "points_earned": t.points_earned,
+        "bonus_tokens": t.bonus_tokens,
+        "description": t.description,
+        "created_at": t.created_at.isoformat() if t.created_at else None
+    } for t in txns]
+
+
+@router.get("/trash/list")
+def list_trash(
+    branch_id: Optional[int] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    if current_user.role != "owner":
+        branch_id = current_user.branch_id
+
+    query = db.query(Member).filter(Member.is_deleted == True)
+    if branch_id:
+        query = query.filter(Member.branch_id == branch_id)
+    if search:
+        q = f"%{search}%"
+        query = query.filter(
+            (Member.first_name.ilike(q)) | (Member.last_name.ilike(q)) | (Member.card_number.ilike(q))
+        )
+
+    members = query.order_by(Member.deleted_at.desc()).all()
+    return [build_response(m, db) for m in members]
+
+
+@router.post("/{member_id}/soft-delete")
+def soft_delete_member(
+    member_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    m = db.query(Member).filter(Member.id == member_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
+    if m.is_deleted:
+        raise HTTPException(status_code=400, detail="Member is already in trash")
+
+    m.is_deleted = True
+    m.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"message": "Member moved to trash", "id": m.id}
+
+
+@router.post("/{member_id}/restore")
+def restore_member(
+    member_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    m = db.query(Member).filter(Member.id == member_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
+    if not m.is_deleted:
+        raise HTTPException(status_code=400, detail="Member is not in trash")
+
+    m.is_deleted = False
+    m.deleted_at = None
+    db.commit()
+    return {"message": "Member restored", "id": m.id}
+
+
+@router.delete("/{member_id}/permanent")
+def permanently_delete_member(
+    member_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner"))
+):
+    m = db.query(Member).filter(Member.id == member_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Member not found")
+    if not m.is_deleted:
+        raise HTTPException(status_code=400, detail="Member must be in trash first")
+
+    db.delete(m)
+    db.commit()
+    return {"message": "Member permanently deleted", "id": member_id}

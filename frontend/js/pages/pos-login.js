@@ -43,7 +43,7 @@ function renderPOSLogin() {
                     </svg>
                 </div>
                 <h1 class="login-title" style="background:linear-gradient(135deg,#22c55e,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">POS TERMINAL</h1>
-                <p class="login-subtitle">ADMIN ACCESS ONLY</p>
+                <p class="login-subtitle">FULL-TIME EMPLOYEE ACCESS</p>
 
                 <div class="login-form">
                     <div class="login-field">
@@ -54,7 +54,7 @@ function renderPOSLogin() {
                     </div>
 
                     <div class="login-field">
-                        <label>Enter Admin PIN</label>
+                        <label>Enter PIN</label>
                         <div class="pin-display" id="pos-pin-display"></div>
                     </div>
 
@@ -138,8 +138,8 @@ function renderPOSLogin() {
             });
             const user = await userResp.json();
 
-            if (user.role !== 'admin') {
-                showError('POS access is restricted to Admin role only.');
+            if (user.employment_type === 'part_time') {
+                showError('POS access is not available for part-time employees.');
                 loginBtn.disabled = false;
                 loginBtn.textContent = 'OPEN POS';
                 pin = '';

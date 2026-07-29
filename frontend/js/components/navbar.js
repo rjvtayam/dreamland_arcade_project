@@ -24,3 +24,7 @@ function renderNavbar(title) {
         </div>
     `;
 }
+
+function initNavbarNotifications() {
+    NotificationCenter.init();
+}

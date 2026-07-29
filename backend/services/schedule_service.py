@@ -7,7 +7,7 @@ from models.schedule import Schedule
 from models.user import User
 
 
-def create_schedule(db: Session, user_id: int, branch_id: int, day_of_week: int, start_time: str, end_time: str, station: str = None) -> Schedule:
+def create_schedule(db: Session, user_id: int, branch_id: int, day_of_week: int, start_time: str, end_time: str, station: str = None, week_number: int = 0) -> Schedule:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -16,6 +16,7 @@ def create_schedule(db: Session, user_id: int, branch_id: int, day_of_week: int,
         user_id=user_id,
         branch_id=branch_id,
         day_of_week=day_of_week,
+        week_number=week_number,
         start_time=start_time,
         end_time=end_time,
         station=station

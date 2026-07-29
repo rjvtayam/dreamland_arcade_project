@@ -15,6 +15,9 @@ from routers.special_events import router as special_events_router
 from routers.tracking_sheets import router as tracking_sheets_router
 from routers.members import router as members_router
 from routers.pos_reports import router as pos_reports_router
+from routers.notifications import router as notifications_router
+from routers.messages import router as messages_router
+from routers.proposals import router as proposals_router
 
 all_routers = [
     auth_router,
@@ -34,4 +37,7 @@ all_routers = [
     tracking_sheets_router,
     members_router,
     pos_reports_router,
+    notifications_router,
+    messages_router,
+    proposals_router,
 ]

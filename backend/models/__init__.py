@@ -13,11 +13,14 @@ from models.special_event import SpecialEvent
 from models.tracking_sheet import TrackingSheet, TrackingSheetItem
 from models.member import Member, MemberTransaction
 from models.pos_report import POSReport
+from models.notification import Notification, MessageThread, MessageParticipant, Message
+from models.proposal import Proposal
 
 __all__ = [
     "User", "Branch", "Attendance", "Schedule", "DayoffRequest",
     "Holiday", "InventoryCategory", "InventoryItem", "InventoryLog",
     "Product", "Sale", "SaleItem", "Payslip", "Announcement", "SpecialEvent",
     "TrackingSheet", "TrackingSheetItem", "Member", "MemberTransaction",
-    "POSReport"
+    "POSReport", "Notification", "MessageThread", "MessageParticipant", "Message",
+    "Proposal"
 ]
