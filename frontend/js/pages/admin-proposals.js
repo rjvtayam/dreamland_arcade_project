@@ -8,6 +8,7 @@ function renderAdminProposals() {
   var filterArea = '';
   var editingProposal = null;
   var view = 'list';
+  var showDeleted = false;
 
   async function loadData() {
     branches = await apiGet('/branches');
@@ -25,6 +26,7 @@ function renderAdminProposals() {
     if (selectedBranch) params.push('branch_id=' + selectedBranch);
     if (filterArea) params.push('area=' + filterArea);
     if (filterMonth) params.push('proposal_month=' + filterMonth);
+    if (showDeleted) params.push('show_deleted=true');
     var url = '/proposals' + (params.length ? '?' + params.join('&') : '');
     proposals = await apiGet(url);
     if (!Array.isArray(proposals)) proposals = [];
@@ -120,9 +122,29 @@ function renderAdminProposals() {
   }
 
   async function deleteProposal(id) {
-    if (!await confirmAsync('Delete this proposal?')) return;
+    if (!await confirmAsync('Move this proposal to trash?')) return;
+    await apiPost('/proposals/' + id + '/soft-delete', {});
+    Toast.success('Moved to trash');
+    editingProposal = null;
+    view = 'list';
+    await loadProposals();
+    render();
+  }
+
+  async function restoreProposal(id) {
+    if (!await confirmAsync('Restore this proposal?')) return;
+    await apiPost('/proposals/' + id + '/restore', {});
+    Toast.success('Proposal restored');
+    editingProposal = null;
+    view = 'list';
+    await loadProposals();
+    render();
+  }
+
+  async function permanentDeleteProposal(id) {
+    if (!await confirmAsync('Permanently delete this proposal? This cannot be undone.')) return;
     await apiDelete('/proposals/' + id);
-    Toast.success('Deleted');
+    Toast.success('Permanently deleted');
     editingProposal = null;
     view = 'list';
     await loadProposals();
@@ -166,7 +188,7 @@ function renderAdminProposals() {
     }
 
     var filteredProposals = proposals;
-    if (filterStatus) filteredProposals = proposals.filter(function(p) { return p.status === filterStatus; });
+    if (!showDeleted && filterStatus) filteredProposals = proposals.filter(function(p) { return p.status === filterStatus; });
 
     var areas = [
       { id: '', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16', label: 'All Areas', color: '#94a3b8' },
@@ -227,6 +249,13 @@ function renderAdminProposals() {
         '<td style="padding:12px 14px;color:#22c55e;font-weight:600;">' + formatCurrency(p.amount || 0) + '</td>' +
         '<td style="padding:12px 14px;">' + statusBadge(p.status) + '</td>' +
         '<td style="padding:12px 14px;text-align:right;">' +
+          (showDeleted ?
+            '<div style="display:flex;gap:4px;justify-content:flex-end;">' +
+              '<button onclick="event.stopPropagation();window.__proposalRestore(' + p.id + ')" style="background:#1a2035;color:#22c55e;border:1px solid #22c55e44;border-radius:6px;padding:5px 8px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'#22c55e\';this.style.color=\'#4ade80\'" onmouseleave="this.style.borderColor=\'#22c55e44\';this.style.color=\'#22c55e\'">' +
+                '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg></button>' +
+              (isOwner ? '<button onclick="event.stopPropagation();window.__proposalPermanentDelete(' + p.id + ')" style="background:#1a2035;color:#ef4444;border:1px solid #ef444444;border-radius:6px;padding:5px 8px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'#ef4444\';this.style.color=\'#f87171\'" onmouseleave="this.style.borderColor=\'#ef444444\';this.style.color=\'#ef4444\'">' +
+                '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>' : '') +
+            '</div>' :
           (canEdit && p.status !== 'approved' ?
             '<button onclick="event.stopPropagation();window.__proposalEdit(' + p.id + ')" style="background:#1a2035;color:#94a3b8;border:1px solid #2a3040;border-radius:6px;padding:5px 8px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'#6366f1\';this.style.color=\'#a78bfa\'" onmouseleave="this.style.borderColor=\'#2a3040\';this.style.color=\'#94a3b8\'">' +
               '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>' : '') +
@@ -237,7 +266,7 @@ function renderAdminProposals() {
               '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>' : '') +
           (canEdit && p.status !== 'approved' && p.status !== 'submitted' ?
             '<button onclick="event.stopPropagation();window.__proposalDelete(' + p.id + ')" style="background:#1a2035;color:#ef4444;border:1px solid #ef444444;border-radius:6px;padding:5px 8px;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.borderColor=\'#ef4444\';this.style.color=\'#f87171\'" onmouseleave="this.style.borderColor=\'#ef444444\';this.style.color=\'#ef4444\'">' +
-              '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>' : '') +
+              '<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>' : '')) +
         '</td>' +
       '</tr>';
     });
@@ -259,13 +288,18 @@ function renderAdminProposals() {
               '<div style="color:#f59e0b;font-size:0.6rem;text-transform:uppercase;letter-spacing:2px;margin-top:2px;">Monthly Business Proposals</div>' +
             '</div>' +
           '</div>' +
-          '<button onclick="window.__proposalNew()" style="background:linear-gradient(135deg,#f59e0b,#f59e0bcc);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:0.8rem;box-shadow:0 2px 8px #f59e0b30;">+ New Proposal</button>' +
+          (showDeleted ? '' : '<button onclick="window.__proposalNew()" style="background:linear-gradient(135deg,#f59e0b,#f59e0bcc);color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:0.8rem;box-shadow:0 2px 8px #f59e0b30;">+ New Proposal</button>') +
         '</div>' +
       '</div>' +
 
       '<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">' + areaTabs + '</div>' +
 
       '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;">' +
+        (showDeleted ?
+          '<div style="background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid #ef444433;border-radius:12px;padding:14px;">' +
+            '<div style="color:#64748b;font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">In Trash</div>' +
+            '<div style="color:#ef4444;font-size:1.4rem;font-weight:800;">' + filteredProposals.length + '</div>' +
+          '</div>' :
         '<div style="background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid #1e293b;border-radius:12px;padding:14px;">' +
           '<div style="color:#64748b;font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Draft</div>' +
           '<div style="color:#f59e0b;font-size:1.4rem;font-weight:800;">' + stats.draft + '</div>' +
@@ -281,7 +315,7 @@ function renderAdminProposals() {
         '<div style="background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid #1e293b;border-radius:12px;padding:14px;">' +
           '<div style="color:#64748b;font-size:0.65rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Declined</div>' +
           '<div style="color:#ef4444;font-size:1.4rem;font-weight:800;">' + stats.declined + '</div>' +
-        '</div>' +
+        '</div>') +
       '</div>' +
 
       '<div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">' +
@@ -294,6 +328,7 @@ function renderAdminProposals() {
           '<option value="submitted"' + (filterStatus === 'submitted' ? ' selected' : '') + '>Submitted</option>' +
           '<option value="approved"' + (filterStatus === 'approved' ? ' selected' : '') + '>Approved</option>' +
           '<option value="declined"' + (filterStatus === 'declined' ? ' selected' : '') + '>Declined</option>' +
+          '<option value="__deleted__"' + (showDeleted ? ' selected' : '') + '>Trash</option>' +
         '</select>' +
         '<span style="color:#64748b;font-size:0.75rem;margin-left:auto;">' + filteredProposals.length + ' proposals</span>' +
       '</div>' +
@@ -307,9 +342,9 @@ function renderAdminProposals() {
           '<th style="padding:10px 14px;color:#94a3b8;text-align:left;font-weight:600;">Created By</th>' +
           '<th style="padding:10px 14px;color:#94a3b8;text-align:left;font-weight:600;">Amount</th>' +
           '<th style="padding:10px 14px;color:#94a3b8;text-align:left;font-weight:600;">Status</th>' +
-          '<th style="padding:10px 14px;color:#94a3b8;text-align:right;font-weight:600;">Actions</th>' +
+          '<th style="padding:10px 14px;color:#94a3b8;text-align:right;font-weight:600;">' + (showDeleted ? 'Actions' : 'Actions') + '</th>' +
         '</tr></thead><tbody>' +
-        (rows || '<tr><td colspan="7" style="padding:30px;color:#666;text-align:center;">No proposals found</td></tr>') +
+        (rows || '<tr><td colspan="7" style="padding:30px;color:#666;text-align:center;">' + (showDeleted ? 'Trash is empty' : 'No proposals found') + '</td></tr>') +
         '</tbody></table>' +
       '</div>' +
 
@@ -718,10 +753,22 @@ function renderAdminProposals() {
   window.__proposalApprove = function(id) { approveProposal(id); };
   window.__proposalDecline = function(id) { declineProposal(id); };
   window.__proposalDelete = function(id) { deleteProposal(id); };
+  window.__proposalRestore = function(id) { restoreProposal(id); };
+  window.__proposalPermanentDelete = function(id) { permanentDeleteProposal(id); };
   window.__proposalSaveComment = function(id) { saveOwnerComment(id); };
-  window.__proposalFilterMonth = async function(val) { filterMonth = val; await loadProposals(); render(); };
-  window.__proposalFilterStatus = function(val) { filterStatus = val; render(); };
-  window.__proposalFilterArea = async function(val) { filterArea = val; await loadProposals(); render(); };
+  window.__proposalFilterMonth = async function(val) { filterMonth = val; showDeleted = false; filterStatus = ''; await loadProposals(); render(); };
+  window.__proposalFilterStatus = async function(val) {
+    if (val === '__deleted__') {
+      showDeleted = true;
+      filterStatus = '';
+    } else {
+      showDeleted = false;
+      filterStatus = val;
+    }
+    await loadProposals();
+    render();
+  };
+  window.__proposalFilterArea = async function(val) { filterArea = val; showDeleted = false; filterStatus = ''; await loadProposals(); render(); };
 
   loadData();
 }

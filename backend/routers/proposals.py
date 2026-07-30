@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from typing import Optional
 
 from database import get_db
@@ -17,10 +18,16 @@ def list_proposals(
     branch_id: Optional[int] = None,
     area: Optional[str] = None,
     proposal_month: Optional[str] = None,
+    show_deleted: Optional[bool] = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
     query = db.query(Proposal)
+
+    if show_deleted:
+        query = query.filter(Proposal.deleted_at.isnot(None))
+    else:
+        query = query.filter(Proposal.deleted_at.is_(None))
 
     if current_user.role != "owner":
         query = query.filter(Proposal.branch_id == current_user.branch_id)
@@ -49,6 +56,7 @@ def list_proposals(
             "status": p.status,
             "owner_comment": p.owner_comment,
             "amount": p.amount,
+            "deleted_at": p.deleted_at.isoformat() if p.deleted_at else None,
             "created_at": p.created_at.isoformat() if p.created_at else None,
             "updated_at": p.updated_at.isoformat() if p.updated_at else None,
             "creator_name": f"{creator.first_name} {creator.last_name}" if creator else None,
@@ -88,7 +96,10 @@ def update_proposal(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
-    proposal = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    proposal = db.query(Proposal).filter(
+        Proposal.id == proposal_id,
+        Proposal.deleted_at.is_(None)
+    ).first()
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
 
@@ -118,7 +129,10 @@ def submit_proposal(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
-    proposal = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    proposal = db.query(Proposal).filter(
+        Proposal.id == proposal_id,
+        Proposal.deleted_at.is_(None)
+    ).first()
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     if proposal.created_by != current_user.id and current_user.role != "owner":
@@ -138,7 +152,10 @@ def approve_proposal(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner"))
 ):
-    proposal = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    proposal = db.query(Proposal).filter(
+        Proposal.id == proposal_id,
+        Proposal.deleted_at.is_(None)
+    ).first()
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     if proposal.status != "submitted":
@@ -156,7 +173,10 @@ def decline_proposal(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner"))
 ):
-    proposal = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    proposal = db.query(Proposal).filter(
+        Proposal.id == proposal_id,
+        Proposal.deleted_at.is_(None)
+    ).first()
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     if proposal.status != "submitted":
@@ -168,13 +188,16 @@ def decline_proposal(
     return {"id": proposal.id, "status": "declined"}
 
 
-@router.delete("/{proposal_id}")
-def delete_proposal(
+@router.post("/{proposal_id}/soft-delete")
+def soft_delete_proposal(
     proposal_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("owner", "admin"))
 ):
-    proposal = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    proposal = db.query(Proposal).filter(
+        Proposal.id == proposal_id,
+        Proposal.deleted_at.is_(None)
+    ).first()
     if not proposal:
         raise HTTPException(status_code=404, detail="Proposal not found")
     if current_user.role == "admin" and proposal.created_by != current_user.id:
@@ -182,6 +205,41 @@ def delete_proposal(
     if proposal.status == "approved":
         raise HTTPException(status_code=400, detail="Cannot delete approved proposals")
 
+    proposal.deleted_at = func.now()
+    db.commit()
+    return {"detail": "Moved to trash"}
+
+
+@router.post("/{proposal_id}/restore")
+def restore_proposal(
+    proposal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner"))
+):
+    proposal = db.query(Proposal).filter(
+        Proposal.id == proposal_id,
+        Proposal.deleted_at.isnot(None)
+    ).first()
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Deleted proposal not found")
+
+    proposal.deleted_at = None
+    db.commit()
+    return {"detail": "Restored"}
+
+
+@router.delete("/{proposal_id}")
+def hard_delete_proposal(
+    proposal_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner"))
+):
+    proposal = db.query(Proposal).filter(Proposal.id == proposal_id).first()
+    if not proposal:
+        raise HTTPException(status_code=404, detail="Proposal not found")
+    if proposal.status == "approved":
+        raise HTTPException(status_code=400, detail="Cannot delete approved proposals")
+
     db.delete(proposal)
     db.commit()
-    return {"detail": "Deleted"}
+    return {"detail": "Permanently deleted"}
