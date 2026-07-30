@@ -332,76 +332,105 @@ function initBranchTabs() {
 async function openDeletedPanel() {
     const user = Auth.getUser();
     const isAdmin = user && user.role === 'admin';
-    const branchParam = isAdmin && user.branch_id ? '?branch_id=' + user.branch_id : '';
+    const branchParam = isAdmin && user.branch_id ? '&branch_id=' + user.branch_id : '';
+
+    const existing = document.getElementById('bin-panel');
+    if (existing) { existing.remove(); return; }
+
+    const panel = document.createElement('div');
+    panel.id = 'bin-panel';
+    panel.className = 'nc-panel';
+    document.body.appendChild(panel);
+
+    panel.innerHTML = '<div class="nc-panel-inner">' +
+        '<div class="nc-header">' +
+            '<div style="display:flex;align-items:center;gap:10px;">' +
+                '<div style="width:32px;height:32px;border-radius:8px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;">' +
+                    '<svg width="16" height="16" fill="none" stroke="#ef4444" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>' +
+                '</div>' +
+                '<span style="color:#e2e8f0;font-weight:700;font-size:1rem;">Recycle Bin</span>' +
+            '</div>' +
+            '<button id="bin-close" class="nc-close">&times;</button>' +
+        '</div>' +
+        '<div id="bin-body" class="nc-body">' +
+            '<div style="text-align:center;padding:40px;"><div class="spinner"></div></div>' +
+        '</div>' +
+    '</div>';
+
+    panel.querySelector('#bin-close').onclick = () => {
+        panel.classList.remove('nc-panel-open');
+        panel.classList.add('nc-panel-closing');
+        setTimeout(() => panel.remove(), 200);
+    };
+
+    requestAnimationFrame(() => panel.classList.add('nc-panel-open'));
+
+    const outsideClick = (e) => {
+        const p = document.getElementById('bin-panel');
+        if (!p) { document.removeEventListener('click', outsideClick, true); return; }
+        if (p.contains(e.target)) return;
+        if (e.target.closest('#dash-bin-btn')) return;
+        panel.classList.remove('nc-panel-open');
+        panel.classList.add('nc-panel-closing');
+        setTimeout(() => panel.remove(), 200);
+        document.removeEventListener('click', outsideClick, true);
+    };
+    setTimeout(() => document.addEventListener('click', outsideClick, true), 0);
+
+    const body = panel.querySelector('#bin-body');
 
     try {
-        const deleted = await apiGet('/tracking-sheets?deleted=true' + (branchParam ? '&' + branchParam.slice(1) : ''));
+        const deleted = await apiGet('/tracking-sheets?deleted=true' + branchParam);
         if (!Array.isArray(deleted) || deleted.length === 0) {
-            Toast.info('No deleted reports');
+            body.innerHTML = '<div class="nc-empty"><svg width="32" height="32" fill="none" stroke="#334155" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><p>No deleted reports</p></div>';
             return;
         }
 
-        const modal = document.createElement('div');
-        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
-        modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
-
-        function renderList(items) {
-            return items.length === 0 ?
-                '<div style="text-align:center;padding:40px;color:#64748b;">No deleted reports</div>' :
-                items.map(function(s) {
-                    var areaColor = s.area === 'Arcade' ? '#6366f1' : s.area === 'Playhouse' ? '#22c55e' : '#f59e0b';
-                    return '<div style="background:#0f172a;border:1px solid #1e293b;border-left:3px solid ' + areaColor + ';border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">' +
-                        '<div style="flex:1;min-width:0;">' +
-                            '<div style="display:flex;align-items:center;gap:8px;">' +
-                                '<span style="color:' + areaColor + ';font-weight:700;font-size:0.9rem;">' + esc(s.area) + '</span>' +
-                                '<span style="color:#ef4444;font-size:0.65rem;background:rgba(239,68,68,0.12);padding:2px 8px;border-radius:10px;">DELETED</span>' +
-                            '</div>' +
-                            '<div style="color:#64748b;font-size:0.75rem;margin-top:2px;">' + esc(s.branch_name || 'Branch') + ' · ' + esc(s.sheet_date) + ' · ' + formatCurrency(s.total_sales) + '</div>' +
-                            '<div style="color:#475569;font-size:0.7rem;margin-top:2px;">Deleted: ' + (s.deleted_at ? new Date(s.deleted_at).toLocaleString() : '—') + '</div>' +
-                        '</div>' +
-                        '<div style="display:flex;gap:6px;flex-shrink:0;">' +
-                            '<button onclick="window.__dashRestore(' + s.id + ')" style="padding:6px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#065f46,#059669);color:#fff;font-size:0.7rem;font-weight:600;cursor:pointer;">Restore</button>' +
-                            '<button onclick="window.__dashPermDelete(' + s.id + ')" style="padding:6px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#991b1b,#dc2626);color:#fff;font-size:0.7rem;font-weight:600;cursor:pointer;">Delete</button>' +
-                        '</div>' +
-                    '</div>';
-                }).join('');
-        }
-
-        modal.innerHTML = '<div style="background:#1a1f2e;border:1px solid #2a3040;border-radius:16px;padding:24px;width:560px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;">' +
-            '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
-                '<div style="display:flex;align-items:center;gap:10px;">' +
-                    '<svg width="20" height="20" fill="none" stroke="#ef4444" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>' +
-                    '<span style="color:#e2e8f0;font-weight:700;font-size:1rem;">Deleted Reports</span>' +
-                    '<span style="color:#64748b;font-size:0.8rem;">(' + deleted.length + ')</span>' +
+        body.innerHTML = '<div class="nc-list">' + deleted.map(function(s) {
+            var areaColor = s.area === 'Arcade' ? '#6366f1' : s.area === 'Playhouse' ? '#22c55e' : '#f59e0b';
+            var areaIcon = s.area === 'Arcade' ? 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                : s.area === 'Playhouse' ? 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
+                : 'M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z M6 1v3 M10 1v3 M14 1v3';
+            return '<div class="nc-notif-item" style="cursor:default;">' +
+                '<div class="nc-notif-icon" style="background:' + areaColor + '18;">' +
+                    '<svg width="16" height="16" fill="none" stroke="' + areaColor + '" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + areaIcon + '"/></svg>' +
                 '</div>' +
-                '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:1.2rem;">&times;</button>' +
-            '</div>' +
-            '<div id="deleted-list" style="overflow-y:auto;flex:1;display:grid;gap:8px;">' + renderList(deleted) + '</div>' +
-        '</div>';
+                '<div class="nc-notif-content">' +
+                    '<div class="nc-notif-title" style="display:flex;align-items:center;gap:8px;">' +
+                        '<span style="color:' + areaColor + ';">' + esc(s.area) + '</span>' +
+                        '<span style="color:#ef4444;font-size:0.6rem;background:rgba(239,68,68,0.12);padding:2px 8px;border-radius:10px;">DELETED</span>' +
+                    '</div>' +
+                    '<div class="nc-notif-msg">' + esc(s.branch_name || 'Branch') + ' &middot; ' + esc(s.sheet_date) + ' &middot; ' + formatCurrency(s.total_sales) + '</div>' +
+                    '<div class="nc-notif-meta">Deleted: ' + (s.deleted_at ? new Date(s.deleted_at).toLocaleString() : '—') + '</div>' +
+                    '<div style="display:flex;gap:6px;margin-top:8px;">' +
+                        '<button onclick="window.__binRestore(' + s.id + ')" style="padding:5px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#065f46,#059669);color:#fff;font-size:0.7rem;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 12px rgba(5,150,105,0.3)\'" onmouseleave="this.style.boxShadow=\'none\'">Restore</button>' +
+                        '<button onclick="window.__binPermDelete(' + s.id + ')" style="padding:5px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#991b1b,#dc2626);color:#fff;font-size:0.7rem;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 12px rgba(220,38,38,0.3)\'" onmouseleave="this.style.boxShadow=\'none\'">Delete</button>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        }).join('') + '</div>';
 
-        document.body.appendChild(modal);
-
-        window.__dashRestore = async function(id) {
+        window.__binRestore = async function(id) {
             if (!await confirmAsync('Restore this tracking receipt?', 'Restore', 'info')) return;
             try {
                 await apiPost('/tracking-sheets/' + id + '/restore', {});
                 Toast.success('Restored');
-                modal.remove();
+                panel.remove();
                 renderAdminDashboard();
             } catch (e) { Toast.error(e.message || 'Failed'); }
         };
 
-        window.__dashPermDelete = async function(id) {
+        window.__binPermDelete = async function(id) {
             if (!await confirmAsync('Permanently delete this tracking receipt? This cannot be undone.')) return;
             try {
                 await apiDelete('/tracking-sheets/' + id);
                 Toast.success('Permanently deleted');
-                modal.remove();
+                panel.remove();
                 renderAdminDashboard();
             } catch (e) { Toast.error(e.message || 'Failed'); }
         };
     } catch (e) {
-        Toast.error('Failed to load deleted reports');
+        body.innerHTML = '<div class="nc-empty"><p>Failed to load deleted reports</p></div>';
     }
 
     function esc(str) {
