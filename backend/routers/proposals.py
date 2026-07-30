@@ -52,6 +52,7 @@ def list_proposals(
             "created_at": p.created_at.isoformat() if p.created_at else None,
             "updated_at": p.updated_at.isoformat() if p.updated_at else None,
             "creator_name": f"{creator.first_name} {creator.last_name}" if creator else None,
+            "creator_role": creator.role if creator else None,
             "branch_name": branch.name if branch else None,
         })
     return result
