@@ -24,11 +24,13 @@ function renderSidebar() {
         track: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
         charts: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
         logout: 'M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1',
+        trash: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16',
     };
 
     const ownerSections = [
         { title: 'Overview', collapsed: false, links: [
             { hash: 'dashboard', icon: I.dash, label: 'Dashboard' },
+            { hash: 'bin', icon: I.trash, label: 'Recycle Bin' },
         ]},
         { title: 'Management', links: [
             { hash: 'branches', icon: I.branch, label: 'Branches' },
@@ -56,6 +58,7 @@ function renderSidebar() {
     const adminSections = [
         { title: 'Overview', links: [
             { hash: 'dashboard', icon: I.dash, label: 'Dashboard' },
+            { hash: 'bin', icon: I.trash, label: 'Recycle Bin' },
         ]},
         { title: 'Management', links: [
             { hash: 'users', icon: I.users, label: 'Employees' },

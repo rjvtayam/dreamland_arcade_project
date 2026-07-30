@@ -18,6 +18,7 @@ from routers.pos_reports import router as pos_reports_router
 from routers.notifications import router as notifications_router
 from routers.messages import router as messages_router
 from routers.proposals import router as proposals_router
+from routers.recycle_bin import router as recycle_bin_router
 
 all_routers = [
     auth_router,
@@ -40,4 +41,5 @@ all_routers = [
     notifications_router,
     messages_router,
     proposals_router,
+    recycle_bin_router,
 ]

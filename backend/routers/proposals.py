@@ -9,6 +9,7 @@ from dependencies import get_current_user, require_role
 from models.user import User
 from models.branch import Branch
 from models.proposal import Proposal
+from models.recycle_bin import RecycleBin
 
 router = APIRouter(prefix="/api/proposals", tags=["proposals"])
 
@@ -206,6 +207,17 @@ def soft_delete_proposal(
         raise HTTPException(status_code=400, detail="Cannot delete approved proposals")
 
     proposal.deleted_at = func.now()
+
+    bin_entry = RecycleBin(
+        source_module="proposals",
+        source_id=proposal.id,
+        title=proposal.title,
+        description=(proposal.description or "")[:500],
+        branch_id=proposal.branch_id,
+        deleted_by=current_user.id,
+        metadata={"status": proposal.status, "area": proposal.area, "amount": proposal.amount, "proposal_month": proposal.proposal_month},
+    )
+    db.add(bin_entry)
     db.commit()
     return {"detail": "Moved to trash"}
 
@@ -224,6 +236,10 @@ def restore_proposal(
         raise HTTPException(status_code=404, detail="Deleted proposal not found")
 
     proposal.deleted_at = None
+    db.query(RecycleBin).filter(
+        RecycleBin.source_module == "proposals",
+        RecycleBin.source_id == proposal_id
+    ).delete()
     db.commit()
     return {"detail": "Restored"}
 
@@ -240,6 +256,10 @@ def hard_delete_proposal(
     if proposal.status == "approved":
         raise HTTPException(status_code=400, detail="Cannot delete approved proposals")
 
+    db.query(RecycleBin).filter(
+        RecycleBin.source_module == "proposals",
+        RecycleBin.source_id == proposal_id
+    ).delete()
     db.delete(proposal)
     db.commit()
     return {"detail": "Permanently deleted"}
