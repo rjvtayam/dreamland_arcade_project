@@ -353,19 +353,19 @@ dreamland_arcade_project/
 ### Environment Variables
 
 ```env
-DATABASE_URL=postgresql://dreamland_app:dl_app_2026@localhost:5432/dreamland_arcade
+DATABASE_URL=postgresql://user:password@localhost:5432/dreamland_arcade
 JWT_SECRET_KEY=your-strong-secret-key-here
 DEBUG=False
 CORS_ORIGINS=https://yourdomain.com
 
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=dreamlandarcade2026@gmail.com
+SMTP_USER=your-email@gmail.com
 SMTP_PASSWORD=your-app-password
 
 IMAP_HOST=imap.gmail.com
 IMAP_PORT=993
-IMAP_USER=dreamlandarcade2026@gmail.com
+IMAP_USER=your-email@gmail.com
 IMAP_PASSWORD=your-app-password
 ```
 

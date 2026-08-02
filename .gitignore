@@ -14,6 +14,10 @@ env/
 .env.local
 .env.production
 
+# SQL seeds (contain sensitive data)
+sql/seed.sql
+sql/*.sql
+
 # Logs
 *.log
 security.log
