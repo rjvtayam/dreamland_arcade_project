@@ -341,33 +341,9 @@ dreamland_arcade_project/
 
 ### Production Checklist
 
-- [ ] Set `DEBUG=False` in `.env`
-- [ ] Generate strong `JWT_SECRET_KEY`
-- [ ] Set `CORS_ORIGINS` to production domain
-- [ ] Configure Gmail App Password for SMTP/IMAP
-- [ ] Use `dreamland_app` user (not `postgres` superuser)
 - [ ] Enable HTTPS (reverse proxy with nginx/caddy)
 - [ ] Set up database backups
 - [ ] Configure log rotation (already implemented in code)
-
-### Environment Variables
-
-```env
-DATABASE_URL=postgresql://user:password@localhost:5432/dreamland_arcade
-JWT_SECRET_KEY=your-strong-secret-key-here
-DEBUG=False
-CORS_ORIGINS=https://yourdomain.com
-
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
-
-IMAP_HOST=imap.gmail.com
-IMAP_PORT=993
-IMAP_USER=your-email@gmail.com
-IMAP_PASSWORD=your-app-password
-```
 
 ---
 
