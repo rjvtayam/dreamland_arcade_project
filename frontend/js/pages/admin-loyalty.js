@@ -653,10 +653,7 @@ function renderAdminLoyalty() {
 
   }
 
-  function esc(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
+
 
   window.__loyIssue = function() { issueCard(); };
   window.__loyView = function(id) { viewMember(id); };
@@ -720,21 +717,94 @@ function renderAdminLoyalty() {
     ];
 
     var tierInfo = [
-      { name: 'Regular', color: '#64748b', req: 'Default', bonus: '0%', perks: 'Basic membership' },
-      { name: '🥈 Silver', color: '#c0c0c0', req: '500 pts', bonus: '5%', perks: '5% bonus tokens on every purchase' },
-      { name: '🥇 Gold', color: '#fbbf24', req: '2,000 pts', bonus: '10%', perks: '10% bonus tokens + priority support' },
-      { name: '👑 Black', color: '#a5b4fc', req: '5,000 pts', bonus: '15%', perks: '15% bonus tokens + exclusive perks' }
+      { name: 'Qualifier', color: '#64748b', req: '0 pts', bonus: '0%', perks: 'Standard membership - no discount', discount: 'No Discount' },
+      { name: 'Silver', color: '#c0c0c0', req: '1,000 pts', bonus: '5%', perks: '5% discount on all token purchases', discount: '5% Off' },
+      { name: 'Gold', color: '#fbbf24', req: '3,000 pts', bonus: '10%', perks: '10% discount + priority access', discount: '10% Off' },
+      { name: 'Black', color: '#a5b4fc', req: '5,000 pts', bonus: '15%', perks: '15% discount + exclusive perks + birthday tokens', discount: '15% Off' }
     ];
+
+    var tierStyles = {
+      none: {
+        bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #334155 70%, #1e293b 100%)',
+        accent: '#475569', accentLight: '#64748b', text: '#e2e8f0', sub: 'rgba(255,255,255,0.45)',
+        border: '#334155', glow: 'rgba(71,85,105,0.3)', holo: 'linear-gradient(135deg, rgba(100,116,139,0.1), rgba(71,85,105,0.05))'
+      },
+      silver: {
+        bg: 'linear-gradient(135deg, #1a1a2e 0%, #374151 25%, #9ca3af 50%, #d1d5db 60%, #9ca3af 75%, #374151 100%)',
+        accent: '#d1d5db', accentLight: '#e5e7eb', text: '#f1f5f9', sub: 'rgba(255,255,255,0.6)',
+        border: '#9ca3af', glow: 'rgba(156,163,175,0.4)', holo: 'linear-gradient(135deg, rgba(209,213,219,0.15), rgba(156,163,175,0.08), rgba(229,231,235,0.12))'
+      },
+      gold: {
+        bg: 'linear-gradient(135deg, #451a03 0%, #92400e 20%, #f59e0b 45%, #fde68a 55%, #f59e0b 70%, #92400e 90%, #451a03 100%)',
+        accent: '#fde68a', accentLight: '#fef3c7', text: '#451a03', sub: 'rgba(69,26,3,0.6)',
+        border: '#f59e0b', glow: 'rgba(245,158,11,0.5)', holo: 'linear-gradient(135deg, rgba(253,230,138,0.2), rgba(245,158,11,0.1), rgba(251,191,36,0.15))'
+      },
+      black: {
+        bg: 'linear-gradient(135deg, #020617 0%, #0f172a 20%, #1e1b4b 40%, #312e81 50%, #1e1b4b 60%, #0f172a 80%, #020617 100%)',
+        accent: '#a5b4fc', accentLight: '#c7d2fe', text: '#e2e8f0', sub: 'rgba(226,232,240,0.5)',
+        border: '#6366f1', glow: 'rgba(99,102,241,0.5)', holo: 'linear-gradient(135deg, rgba(165,180,252,0.12), rgba(99,102,241,0.08), rgba(199,210,254,0.1))'
+      }
+    };
+
+    function renderPremiumCard(m, idx) {
+      var s = tierStyles[m.card_tier] || tierStyles.none;
+      var info = tierInfo[idx];
+      return '<div id="loyalty-card-' + idx + '" style="width:85.6mm;height:54mm;background:' + s.bg + ';border-radius:3.5mm;border:0.5px solid ' + s.border + ';position:relative;overflow:hidden;font-family:\'Segoe UI\',Arial,sans-serif;color:' + s.text + ';box-shadow:0 4px 24px ' + s.glow + ',0 1px 3px rgba(0,0,0,0.3);display:flex;flex-direction:column;justify-content:space-between;padding:4.5mm 5mm;box-sizing:border-box;">' +
+        /* Holographic overlay */
+        '<div style="position:absolute;inset:0;background:' + s.holo + ';pointer-events:none;z-index:1;"></div>' +
+        /* Decorative circles */
+        '<div style="position:absolute;top:-8mm;right:-6mm;width:22mm;height:22mm;border-radius:50%;background:rgba(255,255,255,0.04);z-index:1;"></div>' +
+        '<div style="position:absolute;bottom:-10mm;left:-4mm;width:28mm;height:28mm;border-radius:50%;background:rgba(255,255,255,0.025);z-index:1;"></div>' +
+        '<div style="position:absolute;top:50%;right:8mm;width:18mm;height:18mm;border-radius:50%;border:0.3px solid ' + s.accent + '22;z-index:1;"></div>' +
+        /* Top row: Logo + Tier badge */
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:2;">' +
+          '<div style="display:flex;align-items:center;gap:2.5mm;">' +
+            '<div style="width:9mm;height:9mm;border-radius:2mm;background:linear-gradient(135deg,' + s.accent + 'cc,' + s.accent + '66);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px ' + s.glow + ';border:0.3px solid ' + s.accent + '44;">' +
+              '<div style="font-size:3.5mm;line-height:1;">🕹️</div>' +
+            '</div>' +
+            '<div><div style="font-weight:900;font-size:3.2mm;letter-spacing:1.2px;line-height:1;">DREAMLAND</div>' +
+            '<div style="font-size:2.2mm;letter-spacing:2px;color:' + s.sub + ';font-weight:600;line-height:1.2;">ARCADE</div></div>' +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<div style="background:' + s.accent + '22;border:0.3px solid ' + s.accent + '55;border-radius:1.5mm;padding:0.8mm 3mm;font-weight:800;font-size:2.2mm;letter-spacing:1.5px;text-transform:uppercase;color:' + s.accent + ';">' + info.name.toUpperCase() + '</div>' +
+          '</div>' +
+        '</div>' +
+        /* Middle: Member info */
+        '<div style="position:relative;z-index:2;">' +
+          '<div style="font-weight:800;font-size:4.5mm;letter-spacing:0.5px;line-height:1.2;margin-bottom:1mm;">' + esc(m.first_name) + ' ' + esc(m.last_name) + '</div>' +
+          '<div style="font-size:2.8mm;letter-spacing:1.5px;font-family:\'Courier New\',monospace;color:' + s.sub + ';">' + esc(m.card_number) + '</div>' +
+        '</div>' +
+        /* Bottom row: Stats + Barcode area */
+        '<div style="display:flex;justify-content:space-between;align-items:flex-end;position:relative;z-index:2;">' +
+          '<div style="display:flex;gap:5mm;">' +
+            '<div><div style="font-size:2mm;letter-spacing:1px;color:' + s.sub + ';font-weight:600;">POINTS</div>' +
+            '<div style="font-weight:900;font-size:5mm;line-height:1;">' + (m.total_points || 0).toLocaleString() + '</div></div>' +
+            '<div><div style="font-size:2mm;letter-spacing:1px;color:' + s.sub + ';font-weight:600;">DISCOUNT</div>' +
+            '<div style="font-weight:800;font-size:3.2mm;color:' + s.accent + ';line-height:1.4;">' + info.discount + '</div></div>' +
+          '</div>' +
+          '<div style="text-align:right;">' +
+            '<div style="font-size:2mm;letter-spacing:1px;color:' + s.sub + ';font-weight:600;">BONUS</div>' +
+            '<div style="font-weight:800;font-size:3.2mm;line-height:1;">' + (m.bonus_tokens_earned || 0) + ' tokens</div>' +
+          '</div>' +
+        '</div>' +
+        /* Subtle barcode lines */
+        '<div style="position:absolute;bottom:2mm;right:4mm;display:flex;gap:0.4mm;z-index:2;opacity:0.15;">' +
+          [1,3,1,2,1,3,1,1,2,1,3,1,2,1,1,3,1,2,1,3,1,1,2,1,3,1].map(function(w) {
+            return '<div style="width:' + (w * 0.3) + 'mm;height:4mm;background:' + s.text + ';border-radius:0.1mm;"></div>';
+          }).join('') +
+        '</div>' +
+      '</div>';
+    }
 
     var cardsHtml = sampleMembers.map(function(m, i) {
       var info = tierInfo[i];
       return '<div style="text-align:center;">' +
-        '<div style="display:inline-block;margin-bottom:8px;">' + renderCard(m, 'small') + '</div>' +
+        '<div style="margin-bottom:10px;display:flex;justify-content:center;">' + renderPremiumCard(m, i) + '</div>' +
         '<div style="background:#0d1117;border:1px solid #1e2736;border-radius:8px;padding:10px;">' +
-          '<div style="color:' + info.color + ';font-weight:700;font-size:0.85rem;margin-bottom:6px;">' + info.name + '</div>' +
+          '<div style="color:' + info.color + ';font-weight:700;font-size:0.85rem;margin-bottom:6px;">' + info.name + ' Tier</div>' +
           '<div style="display:flex;flex-direction:column;gap:4px;font-size:0.72rem;">' +
             '<div style="display:flex;justify-content:space-between;"><span style="color:#666;">Requirement</span><span style="color:#94a3b8;font-weight:600;">' + info.req + '</span></div>' +
-            '<div style="display:flex;justify-content:space-between;"><span style="color:#666;">Bonus Rate</span><span style="color:#22c55e;font-weight:600;">' + info.bonus + '</span></div>' +
+            '<div style="display:flex;justify-content:space-between;"><span style="color:#666;">Discount</span><span style="color:#22c55e;font-weight:600;">' + info.discount + '</span></div>' +
             '<div style="color:#888;font-size:0.68rem;margin-top:4px;line-height:1.3;">' + info.perks + '</div>' +
           '</div>' +
         '</div>' +
@@ -742,23 +812,119 @@ function renderAdminLoyalty() {
     }).join('');
 
     var html = '<div style="margin-bottom:16px;">' +
-      '<div style="color:#94a3b8;font-size:0.85rem;line-height:1.6;">All card tiers and their benefits. Cards auto-upgrade as members earn points.</div>' +
+      '<div style="color:#94a3b8;font-size:0.85rem;line-height:1.6;">Premium loyalty cards at standard school ID size (85.6mm x 54mm). Click <strong style="color:#6366f1;">Print All Cards</strong> to print.</div>' +
     '</div>' +
-    '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">' + cardsHtml + '</div>' +
+    '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;">' + cardsHtml + '</div>' +
     '<div style="margin-top:16px;background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:14px;">' +
       '<div style="color:#94a3b8;font-size:0.75rem;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">Tier Progression</div>' +
       '<div style="display:flex;align-items:center;gap:0;">' +
-        '<div style="flex:1;text-align:center;"><div style="color:#64748b;font-size:0.7rem;">None</div><div style="color:#666;font-size:0.6rem;">0 pts</div></div>' +
-        '<div style="color:#30363d;font-size:1.2rem;">→</div>' +
-        '<div style="flex:1;text-align:center;"><div style="color:#c0c0c0;font-size:0.7rem;">Silver</div><div style="color:#666;font-size:0.6rem;">500 pts</div></div>' +
-        '<div style="color:#30363d;font-size:1.2rem;">→</div>' +
-        '<div style="flex:1;text-align:center;"><div style="color:#fbbf24;font-size:0.7rem;">Gold</div><div style="color:#666;font-size:0.6rem;">2,000 pts</div></div>' +
-        '<div style="color:#30363d;font-size:1.2rem;">→</div>' +
+        '<div style="flex:1;text-align:center;"><div style="color:#64748b;font-size:0.7rem;">Qualifier</div><div style="color:#666;font-size:0.6rem;">0 pts</div></div>' +
+        '<div style="color:#30363d;font-size:1.2rem;">&#10132;</div>' +
+        '<div style="flex:1;text-align:center;"><div style="color:#c0c0c0;font-size:0.7rem;">Silver</div><div style="color:#666;font-size:0.6rem;">1,000 pts</div></div>' +
+        '<div style="color:#30363d;font-size:1.2rem;">&#10132;</div>' +
+        '<div style="flex:1;text-align:center;"><div style="color:#fbbf24;font-size:0.7rem;">Gold</div><div style="color:#666;font-size:0.6rem;">3,000 pts</div></div>' +
+        '<div style="color:#30363d;font-size:1.2rem;">&#10132;</div>' +
         '<div style="flex:1;text-align:center;"><div style="color:#a5b4fc;font-size:0.7rem;">Black</div><div style="color:#666;font-size:0.6rem;">5,000 pts</div></div>' +
       '</div>' +
+    '</div>' +
+    '<div style="margin-top:14px;text-align:center;">' +
+      '<button onclick="window.__printLoyaltyCards()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:8px;padding:10px 28px;cursor:pointer;font-weight:700;font-size:0.85rem;letter-spacing:0.5px;box-shadow:0 2px 10px rgba(99,102,241,0.3);">🖨 Print All Cards</button>' +
     '</div>';
 
-    Modal.show('Loyalty Card Designs', html, { width: '920px' });
+    Modal.show('Loyalty Card Designs', html, { width: '960px' });
+
+    window.__printLoyaltyCards = function() {
+      var cardStyles = '<style>' +
+        '@page { size: landscape; margin: 8mm; }' +
+        '@media print { body { margin: 0; padding: 0; background: #fff; } .no-print { display: none !important; } }' +
+        '*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }' +
+        'body { font-family: "Segoe UI", Arial, sans-serif; background: #f8fafc; padding: 10mm; }' +
+        '.print-title { text-align: center; font-size: 11pt; font-weight: 800; color: #1e293b; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6mm; }' +
+        '.print-subtitle { text-align: center; font-size: 8pt; color: #64748b; margin-bottom: 8mm; }' +
+        '.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; justify-items: center; }' +
+        '.card-wrap { width: 85.6mm; height: 54mm; border-radius: 3.5mm; position: relative; overflow: hidden; color: #e2e8f0; display: flex; flex-direction: column; justify-content: space-between; padding: 4.5mm 5mm; border: 0.5px solid rgba(0,0,0,0.15); -webkit-print-color-adjust: exact; print-color-adjust: exact; }' +
+        '.card-holo { position: absolute; inset: 0; pointer-events: none; z-index: 1; }' +
+        '.card-circle-tr { position: absolute; top: -8mm; right: -6mm; width: 22mm; height: 22mm; border-radius: 50%; background: rgba(255,255,255,0.04); z-index: 1; }' +
+        '.card-circle-bl { position: absolute; bottom: -10mm; left: -4mm; width: 28mm; height: 28mm; border-radius: 50%; background: rgba(255,255,255,0.025); z-index: 1; }' +
+        '.card-circle-mid { position: absolute; top: 50%; right: 8mm; width: 18mm; height: 18mm; border-radius: 50%; border: 0.3px solid rgba(255,255,255,0.1); z-index: 1; }' +
+        '.card-top { display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 2; }' +
+        '.card-logo { display: flex; align-items: center; gap: 2.5mm; }' +
+        '.card-logo-icon { width: 9mm; height: 9mm; border-radius: 2mm; display: flex; align-items: center; justify-content: center; border: 0.3px solid rgba(255,255,255,0.2); }' +
+        '.card-logo-text { font-weight: 900; font-size: 3.2mm; letter-spacing: 1.2px; line-height: 1; }' +
+        '.card-logo-sub { font-size: 2.2mm; letter-spacing: 2px; opacity: 0.5; font-weight: 600; line-height: 1.2; }' +
+        '.card-tier-badge { padding: 0.8mm 3mm; border-radius: 1.5mm; font-weight: 800; font-size: 2.2mm; letter-spacing: 1.5px; text-transform: uppercase; }' +
+        '.card-mid { position: relative; z-index: 2; }' +
+        '.card-name { font-weight: 800; font-size: 4.5mm; letter-spacing: 0.5px; line-height: 1.2; margin-bottom: 1mm; }' +
+        '.card-number { font-size: 2.8mm; letter-spacing: 1.5px; font-family: "Courier New", monospace; opacity: 0.5; }' +
+        '.card-bottom { display: flex; justify-content: space-between; align-items: flex-end; position: relative; z-index: 2; }' +
+        '.card-stats { display: flex; gap: 5mm; }' +
+        '.card-stat-label { font-size: 2mm; letter-spacing: 1px; opacity: 0.45; font-weight: 600; }' +
+        '.card-stat-value { font-weight: 900; line-height: 1; }' +
+        '.card-pts { font-size: 5mm; }' +
+        '.card-discount { font-size: 3.2mm; font-weight: 800; }' +
+        '.card-bonus { font-size: 3.2mm; font-weight: 800; }' +
+        '.barcode { position: absolute; bottom: 2mm; right: 4mm; display: flex; gap: 0.4mm; z-index: 2; opacity: 0.12; }' +
+        '.barcode div { height: 4mm; border-radius: 0.1mm; }' +
+        '.print-footer { text-align: center; font-size: 7pt; color: #94a3b8; margin-top: 6mm; }' +
+      '</style>';
+
+      var cards = [
+        { m: sampleMembers[0], s: tierStyles.none, info: tierInfo[0] },
+        { m: sampleMembers[1], s: tierStyles.silver, info: tierInfo[1] },
+        { m: sampleMembers[2], s: tierStyles.gold, info: tierInfo[2] },
+        { m: sampleMembers[3], s: tierStyles.black, info: tierInfo[3] }
+      ];
+
+      var barcodePattern = [1,3,1,2,1,3,1,1,2,1,3,1,2,1,1,3,1,2,1,3,1,1,2,1,3,1];
+
+      var cardsHtml = cards.map(function(c) {
+        var m = c.m, s = c.s, info = c.info;
+        var tc = m.card_tier === 'gold' ? '#451a03' : '#fff';
+        return '<div class="card-wrap" style="background:' + s.bg + ';box-shadow:0 2px 12px ' + s.glow + ';">' +
+          '<div class="card-holo" style="background:' + s.holo + ';"></div>' +
+          '<div class="card-circle-tr"></div>' +
+          '<div class="card-circle-bl"></div>' +
+          '<div class="card-circle-mid"></div>' +
+          '<div class="card-top">' +
+            '<div class="card-logo">' +
+              '<div class="card-logo-icon" style="background:linear-gradient(135deg,' + s.accent + 'cc,' + s.accent + '66);">' +
+                '<div style="font-size:3.5mm;line-height:1;">🕹️</div>' +
+              '</div>' +
+              '<div><div class="card-logo-text">DREAMLAND</div><div class="card-logo-sub">ARCADE</div></div>' +
+            '</div>' +
+            '<div class="card-tier-badge" style="background:' + s.accent + '22;border:0.3px solid ' + s.accent + '55;color:' + s.accent + ';">' + info.name.toUpperCase() + '</div>' +
+          '</div>' +
+          '<div class="card-mid">' +
+            '<div class="card-name" style="color:' + s.text + ';">' + esc(m.first_name) + ' ' + esc(m.last_name) + '</div>' +
+            '<div class="card-number" style="color:' + s.sub + ';">' + esc(m.card_number) + '</div>' +
+          '</div>' +
+          '<div class="card-bottom">' +
+            '<div class="card-stats">' +
+              '<div><div class="card-stat-label" style="color:' + s.sub + ';">POINTS</div><div class="card-stat-value card-pts" style="color:' + s.text + ';">' + (m.total_points || 0).toLocaleString() + '</div></div>' +
+              '<div><div class="card-stat-label" style="color:' + s.sub + ';">DISCOUNT</div><div class="card-discount" style="color:' + s.accent + ';">' + info.discount + '</div></div>' +
+            '</div>' +
+            '<div style="text-align:right;"><div class="card-stat-label" style="color:' + s.sub + ';">BONUS</div><div class="card-bonus" style="color:' + s.text + ';">' + (m.bonus_tokens_earned || 0) + ' tokens</div></div>' +
+          '</div>' +
+          '<div class="barcode">' +
+            barcodePattern.map(function(w) {
+              return '<div style="width:' + (w * 0.3) + 'mm;background:' + s.text + ';"></div>';
+            }).join('') +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      var win = window.open('', '_blank');
+      win.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dreamland Arcade - Loyalty Cards</title>');
+      win.document.write(cardStyles);
+      win.document.write('</head><body>');
+      win.document.write('<div class="print-title">Dreamland Arcade Loyalty Cards</div>');
+      win.document.write('<div class="print-subtitle">Standard School ID Size - 85.6mm x 54mm</div>');
+      win.document.write('<div class="cards-grid">' + cardsHtml + '</div>');
+      win.document.write('<div class="print-footer">Dreamland Arcade &bull; Loyalty Card Program &bull; Confidential</div>');
+      win.document.write('</body></html>');
+      win.document.close();
+      setTimeout(function() { win.print(); }, 500);
+    };
   }
 
   loadData();

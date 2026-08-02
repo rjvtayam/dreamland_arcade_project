@@ -340,10 +340,7 @@ function renderPOSReports() {
         });
     }
 
-    function esc(str) {
-        if (!str) return '';
-        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
+
 
     window.__posReportView = function(id) {
         selectedReport = reports.find(function(r) { return r.id === id; });

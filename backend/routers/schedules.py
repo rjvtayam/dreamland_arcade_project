@@ -18,8 +18,14 @@ DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "
 
 STATIONS = ["Arcade Cashier", "Playhouse Cashier", "Cafe Cashier", "Assist/Troubleshoot", "Cleaners/Maintenance"]
 
-FULL_TIME_IDS = [9, 10, 11, 12, 13, 14]
-PART_TIME_IDS = [15, 16]
+
+def _get_user_ids_by_employment(db, branch_id, employment_type):
+    users = db.query(User.id).filter(
+        User.branch_id == branch_id,
+        User.employment_type == employment_type,
+        User.is_active == True
+    ).all()
+    return [u.id for u in users]
 
 
 @router.get("/my")
@@ -141,12 +147,12 @@ def reshuffle_schedules(
         branch_id = current_user.branch_id
 
     full_time = db.query(User).filter(
-        User.id.in_(FULL_TIME_IDS),
+        User.employment_type == "full-time",
         User.branch_id == branch_id,
         User.is_active == True
     ).order_by(User.id).all()
     part_time = db.query(User).filter(
-        User.id.in_(PART_TIME_IDS),
+        User.employment_type == "part-time",
         User.branch_id == branch_id,
         User.is_active == True
     ).order_by(User.id).all()
@@ -219,7 +225,7 @@ def reshuffle_schedules(
             working_today = working_full + working_part
 
             for user in working_today:
-                is_part_time = user.id in PART_TIME_IDS
+                is_part_time = user.employment_type == "part-time"
                 start = "10:00"
                 end = "18:00" if is_part_time else "20:00"
                 station = assigned_today.get(user.id, "Arcade Cashier")
@@ -272,12 +278,12 @@ def generate_initial_schedules(
         branch_id = current_user.branch_id
 
     full_time = db.query(User).filter(
-        User.id.in_(FULL_TIME_IDS),
+        User.employment_type == "full-time",
         User.branch_id == branch_id,
         User.is_active == True
     ).order_by(User.id).all()
     part_time = db.query(User).filter(
-        User.id.in_(PART_TIME_IDS),
+        User.employment_type == "part-time",
         User.branch_id == branch_id,
         User.is_active == True
     ).order_by(User.id).all()
@@ -357,7 +363,7 @@ def generate_initial_schedules(
             working_today = working_full + working_part
 
             for user in working_today:
-                is_part_time = user.id in PART_TIME_IDS
+                is_part_time = user.employment_type == "part-time"
                 start = "10:00"
                 end = "18:00" if is_part_time else "20:00"
                 station = assigned_today.get(user.id, "Arcade Cashier")

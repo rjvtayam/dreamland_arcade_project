@@ -226,7 +226,7 @@ def soft_delete_proposal(
 def restore_proposal(
     proposal_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("owner"))
+    current_user: User = Depends(require_role("owner", "admin"))
 ):
     proposal = db.query(Proposal).filter(
         Proposal.id == proposal_id,
@@ -234,6 +234,9 @@ def restore_proposal(
     ).first()
     if not proposal:
         raise HTTPException(status_code=404, detail="Deleted proposal not found")
+
+    if current_user.role != "owner" and proposal.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Cannot restore proposals from other branches")
 
     proposal.deleted_at = None
     db.query(RecycleBin).filter(

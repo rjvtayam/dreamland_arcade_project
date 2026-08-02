@@ -16,21 +16,28 @@ async function renderAdminDashboard() {
         const dashUrl = isAdmin && userBranchId ? `/reports/dashboard?branch_id=${userBranchId}` : '/reports/dashboard';
         const summaryUrl = isAdmin && userBranchId ? `/sales/summary?period=daily&branch_id=${userBranchId}` : '/sales/summary?period=daily';
         const comparisonUrl = isAdmin && userBranchId ? `/sales/comparison?period=daily&branch_id=${userBranchId}` : '/sales/comparison?period=daily';
-        const deletedUrl = '/tracking-sheets/deleted/count';
+        const deletedUrl = '/recycle-bin';
         const todayStr = new Date().toISOString().slice(0, 10);
         const attendanceUrl = isAdmin && userBranchId ? `/attendance?branch_id=${userBranchId}&target_date=${todayStr}` : `/attendance?target_date=${todayStr}`;
-        const [stats, branches, attendanceRes, salesSummary, deletedRes, comparisonData] = await Promise.all([
+        const [stats, branches, attendanceRes, salesSummary, deletedRes, comparisonData, emailUnreadRes] = await Promise.all([
             apiGet(dashUrl),
             apiGet('/branches'),
             apiGet(attendanceUrl).catch(() => []),
             apiGet(summaryUrl).catch(() => []),
-            apiGet(deletedUrl).catch(() => ({ count: 0 })),
-            apiGet(comparisonUrl).catch(() => null)
+            apiGet(deletedUrl).catch(() => []),
+            apiGet(comparisonUrl).catch(() => null),
+            apiGet('/emails/unread-count').catch(() => ({count: 0}))
         ]);
 
         const body = document.getElementById('page-body');
         const records = Array.isArray(attendanceRes) ? attendanceRes : [];
-        const deletedCount = deletedRes.count || 0;
+        const lastSeen = localStorage.getItem('bin_last_seen');
+        const newItems = Array.isArray(deletedRes) ? deletedRes.filter(item => {
+            if (!lastSeen) return true;
+            return new Date(item.deleted_at) > new Date(lastSeen);
+        }) : [];
+        const deletedCount = newItems.length;
+        const emailUnreadCount = emailUnreadRes.count || 0;
 
         body.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
@@ -44,6 +51,10 @@ async function renderAdminDashboard() {
                     </button>
                     <button id="dash-notif-btn" title="Notifications" style="position:relative;background:#1a1f2e;border:1px solid #30363d;border-radius:8px;padding:8px 10px;color:#94a3b8;cursor:pointer;display:flex;align-items:center;transition:all 0.2s;" onmouseenter="this.style.borderColor=#6366f1;this.style.color=#a78bfa" onmouseleave="this.style.borderColor=#30363d;this.style.color=#94a3b8">
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                    </button>
+                    <button id="dash-email-btn" title="Email" onclick="window.location.hash='email'" style="position:relative;background:#1a1f2e;border:1px solid #30363d;border-radius:8px;padding:8px 10px;color:#94a3b8;cursor:pointer;display:flex;align-items:center;transition:all 0.2s;" onmouseenter="this.style.borderColor=#6366f1;this.style.color=#a78bfa" onmouseleave="this.style.borderColor=#30363d;this.style.color=#94a3b8">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        ${emailUnreadCount > 0 ? '<span id="dash-email-badge" style="position:absolute;top:-4px;right:-4px;background:#8b5cf6;color:#fff;font-size:0.6rem;font-weight:700;border-radius:50%;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 4px;">' + emailUnreadCount + '</span>' : ''}
                     </button>
                     <button id="dash-bin-btn" title="Deleted Reports" style="position:relative;background:#1a1f2e;border:1px solid #30363d;border-radius:8px;padding:8px 10px;color:#94a3b8;cursor:pointer;display:flex;align-items:center;transition:all 0.2s;" onmouseenter="this.style.borderColor=#ef4444;this.style.color=#f87171" onmouseleave="this.style.borderColor=#30363d;this.style.color=#94a3b8">
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -129,6 +140,9 @@ async function renderAdminDashboard() {
         NotificationCenter.bindDashboardButtons();
 
         document.getElementById('dash-bin-btn')?.addEventListener('click', () => {
+            localStorage.setItem('bin_last_seen', new Date().toISOString());
+            const badge = document.getElementById('dash-bin-badge');
+            if (badge) badge.remove();
             openDeletedPanel();
         });
 
@@ -330,10 +344,6 @@ function initBranchTabs() {
 }
 
 async function openDeletedPanel() {
-    const user = Auth.getUser();
-    const isAdmin = user && user.role === 'admin';
-    const branchParam = isAdmin && user.branch_id ? '&branch_id=' + user.branch_id : '';
-
     const existing = document.getElementById('bin-panel');
     if (existing) { existing.remove(); return; }
 
@@ -342,101 +352,181 @@ async function openDeletedPanel() {
     panel.className = 'nc-panel';
     document.body.appendChild(panel);
 
+    var moduleConfig = {
+        proposals: { color: '#f59e0b', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', label: 'Proposals' },
+        tracking: { color: '#6366f1', icon: 'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', label: 'Tracking' },
+        announcements: { color: '#22c55e', icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z', label: 'Announcements' },
+        files: { color: '#3b82f6', icon: 'M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z', label: 'Files' }
+    };
+
     panel.innerHTML = '<div class="nc-panel-inner">' +
         '<div class="nc-header">' +
             '<div style="display:flex;align-items:center;gap:10px;">' +
                 '<div style="width:32px;height:32px;border-radius:8px;background:rgba(239,68,68,0.1);display:flex;align-items:center;justify-content:center;">' +
                     '<svg width="16" height="16" fill="none" stroke="#ef4444" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>' +
                 '</div>' +
-                '<span style="color:#e2e8f0;font-weight:700;font-size:1rem;">Recycle Bin</span>' +
+                '<div>' +
+                    '<div style="color:#e2e8f0;font-weight:700;font-size:1rem;">Recycle Bin</div>' +
+                    '<div style="color:#ef4444;font-size:0.6rem;text-transform:uppercase;letter-spacing:1px;margin-top:1px;">Deleted Items from Across System</div>' +
+                '</div>' +
             '</div>' +
             '<button id="bin-close" class="nc-close">&times;</button>' +
         '</div>' +
+        '<div id="bin-filters" class="nc-tabs" style="padding:0 16px;border-bottom:1px solid rgba(30,58,95,0.2);"></div>' +
         '<div id="bin-body" class="nc-body">' +
             '<div style="text-align:center;padding:40px;"><div class="spinner"></div></div>' +
         '</div>' +
     '</div>';
 
-    panel.querySelector('#bin-close').onclick = () => {
+    panel.querySelector('#bin-close').onclick = function() {
         panel.classList.remove('nc-panel-open');
         panel.classList.add('nc-panel-closing');
-        setTimeout(() => panel.remove(), 200);
+        setTimeout(function() { panel.remove(); }, 200);
     };
 
-    requestAnimationFrame(() => panel.classList.add('nc-panel-open'));
+    requestAnimationFrame(function() { panel.classList.add('nc-panel-open'); });
 
-    const outsideClick = (e) => {
-        const p = document.getElementById('bin-panel');
+    var outsideClick = function(e) {
+        var p = document.getElementById('bin-panel');
         if (!p) { document.removeEventListener('click', outsideClick, true); return; }
         if (p.contains(e.target)) return;
         if (e.target.closest('#dash-bin-btn')) return;
         panel.classList.remove('nc-panel-open');
         panel.classList.add('nc-panel-closing');
-        setTimeout(() => panel.remove(), 200);
+        setTimeout(function() { panel.remove(); }, 200);
         document.removeEventListener('click', outsideClick, true);
     };
-    setTimeout(() => document.addEventListener('click', outsideClick, true), 0);
+    setTimeout(function() { document.addEventListener('click', outsideClick, true); }, 0);
 
-    const body = panel.querySelector('#bin-body');
+    var body = panel.querySelector('#bin-body');
+    var filtersEl = panel.querySelector('#bin-filters');
+    var currentFilter = '';
+    var allItems = [];
 
-    try {
-        const deleted = await apiGet('/tracking-sheets?deleted=true' + branchParam);
-        if (!Array.isArray(deleted) || deleted.length === 0) {
-            body.innerHTML = '<div class="nc-empty"><svg width="32" height="32" fill="none" stroke="#334155" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><p>No deleted reports</p></div>';
+
+
+    function renderBinItem(item) {
+        var mc = moduleConfig[item.source_module] || { color: '#94a3b8', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4', label: item.source_module || 'Unknown' };
+        var meta = item.metadata || {};
+        var detailParts = [];
+
+        if (item.source_module === 'proposals') {
+            if (meta.area) {
+                var ac = meta.area === 'Arcade' ? '#6366f1' : meta.area === 'Playhouse' ? '#22c55e' : '#f59e0b';
+                detailParts.push('<span style="color:' + ac + ';">' + esc(meta.area) + '</span>');
+            }
+            if (meta.proposal_month) detailParts.push('<span style="color:#64748b;">' + esc(meta.proposal_month) + '</span>');
+            if (meta.status) detailParts.push('<span style="color:#64748b;">' + esc(meta.status) + '</span>');
+            if (meta.amount !== undefined && meta.amount !== null) detailParts.push('<span style="color:#22c55e;">' + formatCurrency(meta.amount) + '</span>');
+        } else if (item.source_module === 'tracking') {
+            if (meta.area) {
+                var tc = meta.area === 'Arcade' ? '#6366f1' : meta.area === 'Playhouse' ? '#22c55e' : '#f59e0b';
+                detailParts.push('<span style="color:' + tc + ';">' + esc(meta.area) + '</span>');
+            }
+            if (meta.sheet_date) detailParts.push('<span style="color:#64748b;">' + esc(meta.sheet_date) + '</span>');
+            if (meta.total_sales !== undefined) detailParts.push('<span style="color:#22c55e;">' + formatCurrency(meta.total_sales) + '</span>');
+        }
+
+        var details = detailParts.join(' <span style="color:#334155;">&middot;</span> ');
+
+        return '<div class="nc-notif-item" style="cursor:default;padding:14px 16px;">' +
+            '<div class="nc-notif-icon" style="background:' + mc.color + '18;border:1px solid ' + mc.color + '33;">' +
+                '<svg width="16" height="16" fill="none" stroke="' + mc.color + '" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + mc.icon + '"/></svg>' +
+            '</div>' +
+            '<div class="nc-notif-content">' +
+                '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">' +
+                    '<span style="background:' + mc.color + '18;color:' + mc.color + ';padding:2px 8px;border-radius:10px;font-size:0.55rem;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border:1px solid ' + mc.color + '33;">' + mc.label + '</span>' +
+                    '<span style="color:#ef4444;font-size:0.55rem;background:rgba(239,68,68,0.1);padding:2px 7px;border-radius:10px;font-weight:600;">DELETED</span>' +
+                '</div>' +
+                '<div class="nc-notif-title" style="font-size:0.82rem;line-height:1.3;margin-bottom:4px;">' + esc(item.title) + '</div>' +
+                (details ? '<div style="margin-bottom:4px;">' + details + '</div>' : '') +
+                '<div class="nc-notif-meta">' +
+                    (item.deleted_by_name ? '<span>Deleted by ' + esc(item.deleted_by_name) + '</span> &middot; ' : '') +
+                    '<span>' + timeAgo(item.deleted_at) + '</span>' +
+                '</div>' +
+                '<div style="display:flex;gap:6px;margin-top:10px;">' +
+                    '<button onclick="window.__binRestore(\'' + item.source_module + '\',' + item.source_id + ')" style="padding:5px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#065f46,#059669);color:#fff;font-size:0.7rem;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 12px rgba(5,150,105,0.3)\'" onmouseleave="this.style.boxShadow=\'none\'">Restore</button>' +
+                    '<button onclick="window.__binPermDelete(' + item.id + ')" style="padding:5px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#991b1b,#dc2626);color:#fff;font-size:0.7rem;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 12px rgba(220,38,38,0.3)\'" onmouseleave="this.style.boxShadow=\'none\'">Delete</button>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    function renderTabs() {
+        var modules = {};
+        allItems.forEach(function(it) {
+            if (!modules[it.source_module]) modules[it.source_module] = 0;
+            modules[it.source_module]++;
+        });
+
+        filtersEl.innerHTML = '<button class="nc-tab' + (!currentFilter ? ' active' : '') + '" data-filter="">All <span style="background:rgba(255,255,255,0.08);padding:1px 7px;border-radius:10px;font-size:0.6rem;margin-left:4px;">' + allItems.length + '</span></button>' +
+            Object.keys(modules).map(function(m) {
+                var mc = moduleConfig[m] || { color: '#94a3b8', label: m };
+                var isActive = currentFilter === m;
+                return '<button class="nc-tab' + (isActive ? ' active' : '') + '" data-filter="' + m + '" style="' + (isActive ? 'color:' + mc.color + ';' : '') + '">' +
+                    mc.label + ' <span style="background:' + mc.color + '22;color:' + mc.color + ';padding:1px 7px;border-radius:10px;font-size:0.6rem;margin-left:4px;">' + modules[m] + '</span></button>';
+            }).join('');
+
+        filtersEl.querySelectorAll('.nc-tab').forEach(function(btn) {
+            btn.onclick = function() {
+                currentFilter = btn.dataset.filter || '';
+                renderTabs();
+                renderList();
+            };
+        });
+    }
+
+    function renderList() {
+        var filtered = currentFilter ? allItems.filter(function(it) { return it.source_module === currentFilter; }) : allItems;
+
+        if (filtered.length === 0) {
+            body.innerHTML = '<div class="nc-empty"><svg width="32" height="32" fill="none" stroke="#334155" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg><p style="color:#64748b;">Trash is empty</p></div>';
             return;
         }
 
-        body.innerHTML = '<div class="nc-list">' + deleted.map(function(s) {
-            var areaColor = s.area === 'Arcade' ? '#6366f1' : s.area === 'Playhouse' ? '#22c55e' : '#f59e0b';
-            var areaIcon = s.area === 'Arcade' ? 'M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
-                : s.area === 'Playhouse' ? 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'
-                : 'M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z M6 1v3 M10 1v3 M14 1v3';
-            return '<div class="nc-notif-item" style="cursor:default;">' +
-                '<div class="nc-notif-icon" style="background:' + areaColor + '18;">' +
-                    '<svg width="16" height="16" fill="none" stroke="' + areaColor + '" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="' + areaIcon + '"/></svg>' +
-                '</div>' +
-                '<div class="nc-notif-content">' +
-                    '<div class="nc-notif-title" style="display:flex;align-items:center;gap:8px;">' +
-                        '<span style="color:' + areaColor + ';">' + esc(s.area) + '</span>' +
-                        '<span style="color:#ef4444;font-size:0.6rem;background:rgba(239,68,68,0.12);padding:2px 8px;border-radius:10px;">DELETED</span>' +
-                    '</div>' +
-                    '<div class="nc-notif-msg">' + esc(s.branch_name || 'Branch') + ' &middot; ' + esc(s.sheet_date) + ' &middot; ' + formatCurrency(s.total_sales) + '</div>' +
-                    '<div class="nc-notif-meta">Deleted: ' + (s.deleted_at ? new Date(s.deleted_at).toLocaleString() : '—') + '</div>' +
-                    '<div style="display:flex;gap:6px;margin-top:8px;">' +
-                        '<button onclick="window.__binRestore(' + s.id + ')" style="padding:5px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#065f46,#059669);color:#fff;font-size:0.7rem;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 12px rgba(5,150,105,0.3)\'" onmouseleave="this.style.boxShadow=\'none\'">Restore</button>' +
-                        '<button onclick="window.__binPermDelete(' + s.id + ')" style="padding:5px 12px;border:none;border-radius:6px;background:linear-gradient(135deg,#991b1b,#dc2626);color:#fff;font-size:0.7rem;font-weight:600;cursor:pointer;transition:all 0.2s;" onmouseenter="this.style.boxShadow=\'0 0 12px rgba(220,38,38,0.3)\'" onmouseleave="this.style.boxShadow=\'none\'">Delete</button>' +
-                    '</div>' +
-                '</div>' +
-            '</div>';
-        }).join('') + '</div>';
-
-        window.__binRestore = async function(id) {
-            if (!await confirmAsync('Restore this tracking receipt?', 'Restore', 'info')) return;
-            try {
-                await apiPost('/tracking-sheets/' + id + '/restore', {});
-                Toast.success('Restored');
-                panel.remove();
-                renderAdminDashboard();
-            } catch (e) { Toast.error(e.message || 'Failed'); }
-        };
-
-        window.__binPermDelete = async function(id) {
-            if (!await confirmAsync('Permanently delete this tracking receipt? This cannot be undone.')) return;
-            try {
-                await apiDelete('/tracking-sheets/' + id);
-                Toast.success('Permanently deleted');
-                panel.remove();
-                renderAdminDashboard();
-            } catch (e) { Toast.error(e.message || 'Failed'); }
-        };
-    } catch (e) {
-        body.innerHTML = '<div class="nc-empty"><p>Failed to load deleted reports</p></div>';
+        body.innerHTML = '<div class="nc-list">' + filtered.map(renderBinItem).join('') + '</div>';
     }
 
-    function esc(str) {
-        if (!str) return '';
-        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    async function loadBinItems() {
+        body.innerHTML = '<div style="text-align:center;padding:40px;"><div class="spinner"></div></div>';
+
+        try {
+            allItems = await apiGet('/recycle-bin');
+            if (!Array.isArray(allItems)) allItems = [];
+
+            renderTabs();
+            renderList();
+
+            window.__binRestore = async function(module, sourceId) {
+                if (!await confirmAsync('Restore this ' + module + ' item?', 'Restore', 'info')) return;
+                try {
+                    if (module === 'proposals') {
+                        await apiPost('/proposals/' + sourceId + '/restore', {});
+                    } else if (module === 'tracking') {
+                        await apiPost('/tracking-sheets/' + sourceId + '/restore', {});
+                    }
+                    Toast.success('Restored');
+                    panel.remove();
+                    renderAdminDashboard();
+                } catch (e) { Toast.error(e.message || 'Failed to restore'); }
+            };
+
+            window.__binPermDelete = async function(binId) {
+                if (!await confirmAsync('Permanently delete this item? This cannot be undone.', 'Delete', 'danger')) return;
+                try {
+                    await apiDelete('/recycle-bin/' + binId);
+                    Toast.success('Permanently deleted');
+                    allItems = allItems.filter(function(it) { return it.id !== binId; });
+                    renderTabs();
+                    renderList();
+                } catch (e) { Toast.error(e.message || 'Failed to delete'); }
+            };
+        } catch (e) {
+            body.innerHTML = '<div class="nc-empty"><p style="color:#64748b;">Failed to load deleted items</p></div>';
+        }
     }
+
+    loadBinItems();
 }
 
 function renderEmployeeDashboard() {

@@ -174,10 +174,7 @@ function renderPOSTerminal() {
 
     function getCartTotal() { return cart.reduce(function(sum, item) { return sum + (item.price * item.quantity); }, 0); }
 
-    function esc(str) {
-        if (!str) return '';
-        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
+
 
     function renderProductCard(p) {
         var stock = p.stock || 0;

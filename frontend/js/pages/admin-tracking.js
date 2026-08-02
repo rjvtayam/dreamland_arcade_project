@@ -1537,10 +1537,7 @@ function renderAdminTracking() {
     }
   }
 
-  function esc(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
+
 
   window.__tsNew = function(area) { createNewSheet(area); };
   window.__tsBack = async function() { editingSheet = null; view = 'list'; await Promise.all([loadSheets(), loadTodaySales()]); render(); };

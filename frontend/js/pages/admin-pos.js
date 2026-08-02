@@ -599,10 +599,7 @@ function renderAdminPOS() {
     await Promise.all([loadProducts(), loadTracking()]);
   }
 
-  function esc(str) {
-    if (!str) return '';
-    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
+
 
   loadData();
 }

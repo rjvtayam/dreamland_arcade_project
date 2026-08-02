@@ -15,6 +15,7 @@ from models.member import Member, MemberTransaction
 from models.pos_report import POSReport
 from models.notification import Notification, MessageThread, MessageParticipant, Message
 from models.proposal import Proposal
+from models.email import Email
 
 __all__ = [
     "User", "Branch", "Attendance", "Schedule", "DayoffRequest",
@@ -22,5 +23,5 @@ __all__ = [
     "Product", "Sale", "SaleItem", "Payslip", "Announcement", "SpecialEvent",
     "TrackingSheet", "TrackingSheetItem", "Member", "MemberTransaction",
     "POSReport", "Notification", "MessageThread", "MessageParticipant", "Message",
-    "Proposal"
+    "Proposal", "Email"
 ]

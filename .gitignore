@@ -1,33 +1,45 @@
 # Python
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
+*.pyc
+*.pyo
 *.egg-info/
 dist/
 build/
+.eggs/
+venv/
+env/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+security.log
+security.log.*
+
+# Database
+*.db
+*.sqlite3
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-
-# Environment
-.env
-*.env.local
-
-# Database
-*.db
+*~
 
 # OS
 .DS_Store
 Thumbs.db
-desktop.ini
+Desktop.ini
 
-# Logs
-*.log
+# Node
+node_modules/
+package-lock.json
+
+# Temp
+*.tmp
+*.bak
+*.orig

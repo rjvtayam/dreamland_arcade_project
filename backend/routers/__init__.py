@@ -19,6 +19,7 @@ from routers.notifications import router as notifications_router
 from routers.messages import router as messages_router
 from routers.proposals import router as proposals_router
 from routers.recycle_bin import router as recycle_bin_router
+from routers.email import router as email_router
 
 all_routers = [
     auth_router,
@@ -42,4 +43,5 @@ all_routers = [
     messages_router,
     proposals_router,
     recycle_bin_router,
+    email_router,
 ]

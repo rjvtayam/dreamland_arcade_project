@@ -318,6 +318,22 @@ def soft_delete_sheet(
 
     ts.is_deleted = 1
     ts.deleted_at = datetime.utcnow()
+
+    from models.recycle_bin import RecycleBin
+    branch_name = ""
+    if ts.branch:
+        branch_name = ts.branch.name if hasattr(ts, 'branch') and ts.branch else "Branch"
+    rb = RecycleBin(
+        source_module="tracking",
+        source_id=ts.id,
+        title=f"{ts.area} Tracking - {ts.sheet_date}",
+        description=f"{branch_name or 'Branch'}",
+        branch_id=ts.branch_id,
+        deleted_by=current_user.id,
+        deleted_at=ts.deleted_at,
+        metadata_={"area": ts.area, "sheet_date": str(ts.sheet_date), "total_sales": float(ts.total_sales or 0)}
+    )
+    db.add(rb)
     db.commit()
     return {"detail": "Sheet moved to trash"}
 
@@ -338,6 +354,10 @@ def restore_sheet(
 
     ts.is_deleted = 0
     ts.deleted_at = None
+
+    from models.recycle_bin import RecycleBin
+    db.query(RecycleBin).filter(RecycleBin.source_module == "tracking", RecycleBin.source_id == ts.id).delete()
+
     db.commit()
     return {"detail": "Sheet restored"}
 
@@ -355,6 +375,10 @@ def permanent_delete_sheet(
         raise HTTPException(status_code=403, detail="Access denied")
 
     db.query(TrackingSheetItem).filter(TrackingSheetItem.tracking_sheet_id == ts.id).delete()
+
+    from models.recycle_bin import RecycleBin
+    db.query(RecycleBin).filter(RecycleBin.source_module == "tracking", RecycleBin.source_id == ts.id).delete()
+
     db.delete(ts)
     db.commit()
     return {"detail": "Sheet permanently deleted"}

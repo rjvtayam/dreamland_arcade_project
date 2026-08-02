@@ -266,10 +266,10 @@ const NotificationCenter = {
             <div class="nc-notif-item ${n.is_read ? 'read' : 'unread'}" data-id="${n.id}" data-link="${n.link || ''}" style="cursor:${n.link ? 'pointer' : 'default'};">
                 <div class="nc-notif-icon">${icon}</div>
                 <div class="nc-notif-content">
-                    <div class="nc-notif-title">${this.esc(n.title)}</div>
-                    <div class="nc-notif-msg">${this.esc(n.message)}</div>
+                    <div class="nc-notif-title">${esc(n.title)}</div>
+                    <div class="nc-notif-msg">${esc(n.message)}</div>
                     <div class="nc-notif-meta">
-                        ${n.sender_name ? '<span>' + this.esc(n.sender_name) + '</span> · ' : ''}
+                        ${n.sender_name ? '<span>' + esc(n.sender_name) + '</span> · ' : ''}
                         <span>${timeAgo(n.created_at)}</span>
                     </div>
                 </div>
@@ -296,8 +296,8 @@ const NotificationCenter = {
 
     _renderThreadItem(t) {
         const senderLine = t.last_message_sender
-            ? `<div class="nc-thread-to">From: ${this.esc(t.last_message_sender)} <span style="color:#6366f1;">• ${this.esc(t.last_message_sender_role || '')}</span></div>`
-            : `<div class="nc-thread-to">${this.esc((t.participant_names || []).join(', '))}</div>`;
+            ? `<div class="nc-thread-to">From: ${esc(t.last_message_sender)} <span style="color:#6366f1;">• ${esc(t.last_message_sender_role || '')}</span></div>`
+            : `<div class="nc-thread-to">${esc((t.participant_names || []).join(', '))}</div>`;
         const avatarText = t.last_message_sender
             ? t.last_message_sender.split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase()
             : '??';
@@ -306,10 +306,10 @@ const NotificationCenter = {
                 <div class="nc-thread-avatar">${avatarText}</div>
                 <div class="nc-thread-content">
                     <div class="nc-thread-header">
-                        <span class="nc-thread-names">${this.esc(t.subject)}</span>
+                        <span class="nc-thread-names">${esc(t.subject)}</span>
                         <span class="nc-thread-time">${timeAgo(t.last_message_at || t.created_at)}</span>
                     </div>
-                    <div class="nc-thread-preview">${this.esc(t.last_message || 'No messages yet')}</div>
+                    <div class="nc-thread-preview">${esc(t.last_message || 'No messages yet')}</div>
                     ${senderLine}
                 </div>
                 ${t.unread_count > 0 ? '<div class="nc-thread-unread">' + t.unread_count + '</div>' : ''}
@@ -355,12 +355,12 @@ const NotificationCenter = {
 
     _renderMessage(m, user) {
         const isMe = m.sender_id === user?.id;
-        const roleBadge = m.sender_role ? `<span style="color:#6366f1;font-size:0.6rem;margin-left:4px;">• ${this.esc(m.sender_role)}</span>` : '';
+        const roleBadge = m.sender_role ? `<span style="color:#6366f1;font-size:0.6rem;margin-left:4px;">• ${esc(m.sender_role)}</span>` : '';
         return `
             <div class="nc-msg ${isMe ? 'me' : 'other'}">
                 <div class="nc-msg-bubble">
-                    ${!isMe ? '<div class="nc-msg-sender">' + this.esc(m.sender_name || 'Unknown') + roleBadge + '</div>' : ''}
-                    <div class="nc-msg-text">${this.esc(m.content)}</div>
+                    ${!isMe ? '<div class="nc-msg-sender">' + esc(m.sender_name || 'Unknown') + roleBadge + '</div>' : ''}
+                    <div class="nc-msg-text">${esc(m.content)}</div>
                     <div class="nc-msg-time">${timeAgo(m.created_at)}</div>
                 </div>
             </div>
@@ -389,7 +389,7 @@ const NotificationCenter = {
                         ${users.map(u => `
                             <label class="nc-user-check">
                                 <input type="checkbox" value="${u.id}" class="nc-participant-cb" />
-                                <span class="nc-user-check-name">${this.esc(u.first_name + ' ' + u.last_name)}</span>
+                                <span class="nc-user-check-name">${esc(u.first_name + ' ' + u.last_name)}</span>
                                 <span class="nc-user-check-role">${u.role}</span>
                             </label>
                         `).join('')}
@@ -424,10 +424,4 @@ const NotificationCenter = {
         }});
     },
 
-    esc(str) {
-        if (!str) return '';
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
-    }
 };

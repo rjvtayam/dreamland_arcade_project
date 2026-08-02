@@ -53,17 +53,41 @@ def list_bin(
 def restore_item(
     item_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("owner"))
+    current_user: User = Depends(require_role("owner", "admin"))
 ):
     item = db.query(RecycleBin).filter(RecycleBin.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+
+    if current_user.role != "owner" and item.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Cannot restore items from other branches")
 
     if item.source_module == "proposals":
         from models.proposal import Proposal
         proposal = db.query(Proposal).filter(Proposal.id == item.source_id).first()
         if proposal:
             proposal.deleted_at = None
+        else:
+            db.delete(item)
+            db.commit()
+            return {"detail": "Original record already deleted permanently"}
+
+    elif item.source_module == "tracking":
+        from models.tracking_sheet import TrackingSheet
+        ts = db.query(TrackingSheet).filter(TrackingSheet.id == item.source_id).first()
+        if ts:
+            ts.is_deleted = 0
+            ts.deleted_at = None
+        else:
+            db.delete(item)
+            db.commit()
+            return {"detail": "Original record already deleted permanently"}
+
+    elif item.source_module == "announcements":
+        from models.announcement import Announcement
+        ann = db.query(Announcement).filter(Announcement.id == item.source_id).first()
+        if ann:
+            ann.deleted_at = None
         else:
             db.delete(item)
             db.commit()
@@ -78,11 +102,14 @@ def restore_item(
 def permanent_delete(
     item_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("owner"))
+    current_user: User = Depends(require_role("owner", "admin"))
 ):
     item = db.query(RecycleBin).filter(RecycleBin.id == item_id).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+
+    if current_user.role != "owner" and item.branch_id != current_user.branch_id:
+        raise HTTPException(status_code=403, detail="Cannot delete items from other branches")
 
     db.delete(item)
     db.commit()
@@ -93,9 +120,11 @@ def permanent_delete(
 def empty_bin(
     source_module: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("owner"))
+    current_user: User = Depends(require_role("owner", "admin"))
 ):
     query = db.query(RecycleBin)
+    if current_user.role != "owner":
+        query = query.filter(RecycleBin.branch_id == current_user.branch_id)
     if source_module:
         query = query.filter(RecycleBin.source_module == source_module)
     count = query.count()
