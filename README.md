@@ -88,27 +88,167 @@ The system handles employee management, attendance tracking, scheduling, invento
 
 ## 🏗️ Architecture
 
+### System Overview
+
 ```
-┌─────────────────────────────────────────────────┐
-│                    Frontend                      │
-│  Vanilla HTML5/CSS/JS with neon arcade theme    │
-│  Hash-based SPA routing (no framework)          │
-│  42 JS files, 7 CSS files                       │
-└──────────────────┬──────────────────────────────┘
-                   │ HTTP/REST API
-┌──────────────────▼──────────────────────────────┐
-│                  Backend                        │
-│  FastAPI with 22+ route modules                 │
-│  Service layer for business logic               │
-│  Middleware: Security, Rate Limit, Auth Throttle │
-└──────────────────┬──────────────────────────────┘
-                   │ SQLAlchemy ORM
-┌──────────────────▼──────────────────────────────┐
-│               PostgreSQL 17                     │
-│  28 tables with RLS policies                    │
-│  27 performance indexes on FK columns           │
-│  Row-Level Security for branch isolation        │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        CLIENT (Browser)                         │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                    Frontend (SPA)                         │  │
+│  │                                                           │  │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │  │
+│  │  │  Router   │  │   Auth   │  │   API    │  │  Utils   │ │  │
+│  │  │ (hash)   │  │ (JWT)    │  │ (fetch)  │  │ (esc,    │ │  │
+│  │  │          │  │          │  │          │  │ format)  │ │  │
+│  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘ │  │
+│  │                                                           │  │
+│  │  ┌──────────────────────────────────────────────────────┐ │  │
+│  │  │              Page Renderers (20+ files)              │ │  │
+│  │  │  dashboard, users, attendance, schedules, POS,      │ │  │
+│  │  │  tracking, loyalty, proposals, email, messages...    │ │  │
+│  │  └──────────────────────────────────────────────────────┘ │  │
+│  │                                                           │  │
+│  │  ┌──────────────────────────────────────────────────────┐ │  │
+│  │  │              Components (7 files)                    │ │  │
+│  │  │  sidebar, navbar, toast, modal, confirm-dialog,     │ │  │
+│  │  │  notifications, table                                │ │  │
+│  │  └──────────────────────────────────────────────────────┘ │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ HTTP/REST API
+                                │ Authorization: Bearer <token>
+┌───────────────────────────────▼─────────────────────────────────┐
+│                        SERVER (FastAPI)                          │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                   Middleware Stack                        │  │
+│  │                                                           │  │
+│  │  1. SecureErrorsMiddleware    (hide internal errors)      │  │
+│  │  2. CORSMiddleware            (configurable origins)      │  │
+│  │  3. RequestLoggingMiddleware  (log to security.log)       │  │
+│  │  4. SecurityHeadersMiddleware (X-Frame, CSP, etc.)       │  │
+│  │  5. LoginThrottleMiddleware   (5 attempts → 5min lock)   │  │
+│  │  6. RateLimitMiddleware       (120 req/min per IP)        │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                 Auth & Dependencies                       │  │
+│  │                                                           │  │
+│  │  • HTTPBearer → verify JWT token                          │  │
+│  │  • get_current_user → fetch user + set RLS vars           │  │
+│  │  • require_role("owner", "admin") → role guard            │  │
+│  │  • RLS session vars: app.current_branch_id,               │  │
+│  │                      app.current_user_role                │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              Route Handlers (22 modules)                  │  │
+│  │                                                           │  │
+│  │  Auth:        /auth/login, /auth/refresh, /auth/me       │  │
+│  │  Users:       /users (CRUD)                               │  │
+│  │  Branches:    /branches (public)                          │  │
+│  │  Attendance:  /attendance, /clock-in, /clock-out          │  │
+│  │  Schedules:   /schedules, /reshuffle                      │  │
+│  │  Day-offs:    /dayoffs (request, approve, decline)        │  │
+│  │  Holidays:    /holidays, /special-events                  │  │
+│  │  Products:    /products (POS catalog)                     │  │
+│  │  Sales:       /sales (transactions)                       │  │
+│  │  Members:     /members (loyalty cards)                    │  │
+│  │  Tracking:    /tracking-sheets (daily cash flow)          │  │
+│  │  POS Reports: /pos-reports (daily summaries)              │  │
+│  │  Payslips:    /payslips (generate, approve)               │  │
+│  │  Inventory:   /inventory, /inventory-logs                 │  │
+│  │  Announce:    /announcements (create, broadcast)          │  │
+│  │  Proposals:   /proposals (submit, approve, decline)       │  │
+│  │  Messages:    /messages/threads, /messages                │  │
+│  │  Email:       /emails (SMTP send, IMAP poll)              │  │
+│  │  Notifications: /notifications (read, unread)             │  │
+│  │  Recycle Bin: /recycle-bin (restore, permanent delete)    │  │
+│  │  Reports:     /reports (analytics)                        │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                Service Layer (8 modules)                  │  │
+│  │                                                           │  │
+│  │  auth_service       → PIN hashing, JWT creation           │  │
+│  │  attendance_service → clock-in/out logic, late detection  │  │
+│  │  email_service      → SMTP send, IMAP poll, demo mode     │  │
+│  │  inventory_service  → CRUD, stock management              │  │
+│  │  pos_service        → Product CRUD, tracking sheet sync   │  │
+│  │  schedule_service   → Schedule CRUD, reshuffle algorithm  │  │
+│  │  report_service     → Revenue analytics, aggregation      │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              SQLAlchemy ORM (18 models)                   │  │
+│  │                                                           │  │
+│  │  User, Branch, Member, Attendance, Schedule,              │  │
+│  │  DayoffRequest, Holiday, SpecialEvent,                    │  │
+│  │  Product, Sale, SaleItem, TrackingSheet,                  │  │
+│  │  TrackingSheetItem, Payslip, Proposal,                    │  │
+│  │  Notification, MessageThread, Message,                    │  │
+│  │  MessageParticipant, Email, InventoryItem,                │  │
+│  │  InventoryLog, InventoryCategory,                         │  │
+│  │  MemberTransaction, RecycleBin, PosReport                 │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└───────────────────────────────┬─────────────────────────────────┘
+                                │ SQLAlchemy ORM
+                                │ Connection Pool: 20+30
+                                │ pool_pre_ping=True
+┌───────────────────────────────▼─────────────────────────────────┐
+│                      PostgreSQL 17                              │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              Row-Level Security (RLS)                     │  │
+│  │                                                           │  │
+│  │  Session vars set per-request:                            │  │
+│  │    SET app.current_branch_id = <user's branch>            │  │
+│  │    SET app.current_user_role = <owner|admin|employee>     │  │
+│  │                                                           │  │
+│  │  Policy: owner sees all, others see own branch only       │  │
+│  │                                                           │  │
+│  │  20 tables with RLS enabled:                              │  │
+│  │  users, attendance, schedules, sales, members,            │  │
+│  │  proposals, payslips, tracking_sheets, products,          │  │
+│  │  inventory_items, inventory_logs, announcements,          │  │
+│  │  holidays, special_events, dayoff_requests,               │  │
+│  │  notifications, emails, pos_reports,                      │  │
+│  │  member_transactions, recycle_bin                         │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              Performance Indexes (27)                     │  │
+│  │                                                           │  │
+│  │  All foreign key columns indexed:                         │  │
+│  │  • sales: (sold_by), (branch_id, created_at)              │  │
+│  │  • attendance: (user_id), (branch_id),                    │  │
+│  │               (user_id, clock_in)                         │  │
+│  │  • schedules: (user_id), (branch_id),                     │  │
+│  │               (user_id, branch_id, day_of_week)           │  │
+│  │  • payslips: (user_id), (branch_id)                       │  │
+│  │  • And 15+ more on dayoffs, inventory, members, etc.      │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │              Database Tables (28)                         │  │
+│  │                                                           │  │
+│  │  Core:      branches, users, members                      │  │
+│  │  Operations: attendance, schedules, dayoff_requests,      │  │
+│  │              holidays, special_events                     │  │
+│  │  Sales:     products, sales, sale_items, pos_reports      │  │
+│  │  Finance:   tracking_sheets, tracking_sheet_items,        │  │
+│  │             payslips                                      │  │
+│  │  Loyalty:   member_transactions                           │  │
+│  │  Inventory: inventory_categories, inventory_items,        │  │
+│  │             inventory_logs                                │  │
+│  │  Comms:     announcements, notifications,                 │  │
+│  │             message_threads, messages,                    │  │
+│  │             message_participants, emails                  │  │
+│  │  Planning:  proposals                                     │  │
+│  │  System:    recycle_bin                                   │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
