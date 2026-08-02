@@ -58,14 +58,17 @@ def get_unread_count(
 
 @router.get("/")
 def list_emails(
-    folder: str = Query("inbox", regex="^(inbox|sent|all|unread)$"),
+    folder: str = Query("inbox", regex="^(inbox|sent|all|unread|trash)$"),
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    query = db.query(Email).filter(Email.is_deleted == False)
+    if folder == "trash":
+        query = db.query(Email).filter(Email.is_deleted == True)
+    else:
+        query = db.query(Email).filter(Email.is_deleted == False)
 
     if folder == "inbox":
         query = query.filter(Email.direction == "inbound")
@@ -127,7 +130,7 @@ def get_email(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    em = db.query(Email).filter(Email.id == email_id, Email.is_deleted == False).first()
+    em = db.query(Email).filter(Email.id == email_id).first()
     if not em:
         raise HTTPException(status_code=404, detail="Email not found")
 
@@ -269,6 +272,36 @@ def mark_all_read(
     ).update({"status": "read", "read_at": datetime.now(timezone.utc)})
     db.commit()
     return {"message": "All emails marked as read"}
+
+
+@router.put("/{email_id}/trash")
+def trash_email(
+    email_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    em = db.query(Email).filter(Email.id == email_id).first()
+    if not em:
+        raise HTTPException(status_code=404, detail="Email not found")
+    em.is_deleted = True
+    em.status = "trash"
+    db.commit()
+    return {"message": "Email moved to trash"}
+
+
+@router.put("/{email_id}/restore")
+def restore_email(
+    email_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("owner", "admin"))
+):
+    em = db.query(Email).filter(Email.id == email_id).first()
+    if not em:
+        raise HTTPException(status_code=404, detail="Email not found")
+    em.is_deleted = False
+    em.status = "received" if em.direction == "inbound" else "sent"
+    db.commit()
+    return {"message": "Email restored"}
 
 
 @router.delete("/{email_id}")
