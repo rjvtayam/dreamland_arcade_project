@@ -190,59 +190,15 @@ Session variables are set per-request via `get_current_user()` in `dependencies.
 
 ## 🚀 Getting Started
 
-### Prerequisites
-
-- Python 3.12+
-- PostgreSQL 17
-- pip
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/rjvtayam/dreamland_arcade_project.git
-cd dreamland_arcade_project
-
-# Install dependencies
-pip install -r backend/requirements.txt
-
-# Create the database
-psql -U postgres -c "CREATE DATABASE dreamland_arcade;"
-
-# Create the app user (recommended over using postgres superuser)
-psql -U postgres -d dreamland_arcade -c "
-CREATE USER dreamland_app WITH PASSWORD 'dl_app_2026';
-GRANT ALL PRIVILEGES ON SCHEMA public TO dreamland_app;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO dreamland_app;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO dreamland_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO dreamland_app;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO dreamland_app;
-"
-
-# Apply RLS policies
-psql -U postgres -d dreamland_arcade -f backend/migrations/rls_migration.sql
-psql -U postgres -d dreamland_arcade -f backend/migrations/performance_indexes.sql
-
-# Start the server
-cd backend
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
-
 ### Access
 
 - **Web Interface**: http://localhost:8000
 - **API Docs**: http://localhost:8000/api/docs (debug mode only)
 
-### Default Credentials
+### Access
 
-| Role | PIN | Access |
-|------|-----|--------|
-| Owner | `1234` | All branches |
-| Admin | `1001` | Own branch only |
-
----
-
-## 📡 API Documentation
+- **Web Interface**: http://localhost:8000
+- **API Docs**: http://localhost:8000/api/docs (debug mode only)
 
 ### Core Endpoints
 
